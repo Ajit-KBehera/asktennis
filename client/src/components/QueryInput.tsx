@@ -37,47 +37,45 @@ const QueryInput: React.FC<QueryInputProps> = ({ onQuery, isLoading }) => {
 
   return (
     <div>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label htmlFor="question" className="block text-sm font-medium text-gray-700 mb-2">
-            Ask a tennis question:
+          <label htmlFor="question" className="block text-center text-xl font-bold text-tennis-dark mb-6">
+            Ask a tennis question
           </label>
-          <textarea
-            id="question"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="e.g., Who has the most aces in Grand Slam finals?"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tennis-green focus:border-transparent resize-none"
-            rows={3}
-            disabled={isLoading}
-          />
-        </div>
-        
-        <div className="flex justify-between items-center">
-          <button
-            type="submit"
-            disabled={!question.trim() || isLoading}
-            className="px-6 py-3 bg-tennis-green text-white font-medium rounded-lg hover:bg-green-600 focus:ring-2 focus:ring-tennis-green focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {isLoading ? 'Processing...' : 'Ask Question'}
-          </button>
-          
-          <div className="text-sm text-gray-500">
+          <div className="flex gap-4 items-start">
+            <textarea
+              id="question"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="e.g., Who has the most aces in Grand Slam finals?"
+              className="flex-1 px-6 py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-tennis-green focus:border-transparent resize-none text-lg"
+              rows={4}
+              disabled={isLoading}
+            />
+            <button
+              type="submit"
+              disabled={!question.trim() || isLoading}
+              className="px-8 py-4 bg-tennis-green text-white font-semibold rounded-lg hover:bg-green-600 focus:ring-2 focus:ring-tennis-green focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-lg whitespace-nowrap"
+            >
+              {isLoading ? 'Processing...' : 'Ask Question'}
+            </button>
+          </div>
+          <div className="text-center text-sm text-gray-500 mt-3">
             Press Enter to submit, Shift+Enter for new line
           </div>
         </div>
       </form>
 
-      <div className="mt-6">
-        <p className="text-sm text-gray-600 mb-3">Try these example questions:</p>
-        <div className="flex flex-wrap gap-2">
+      <div className="mt-8">
+        <p className="text-center text-lg font-semibold text-gray-700 mb-4">Try these example questions:</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {exampleQuestions.map((example, index) => (
             <button
               key={index}
               onClick={() => handleExampleClick(example)}
               disabled={isLoading}
-              className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 focus:ring-2 focus:ring-tennis-green focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-3 text-sm bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 focus:ring-2 focus:ring-tennis-green focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-left border border-gray-200 hover:border-tennis-green"
             >
               {example}
             </button>
