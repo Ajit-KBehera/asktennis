@@ -124,7 +124,7 @@ function App() {
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+        <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-xl border border-gray-100 p-8 mb-8 backdrop-blur-sm">
           <QueryInput onQuery={handleQuery} isLoading={isLoading} />
         </div>
 
