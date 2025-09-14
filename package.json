@@ -1,0 +1,40 @@
+{
+  "name": "asktennis",
+  "version": "1.0.0",
+  "description": "AI-powered tennis statistics query system",
+  "main": "server.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "nodemon server.js",
+    "client": "cd client && npm start",
+    "build": "cd client && npm run build",
+    "start": "node server.js",
+    "seed": "node seed.js",
+    "setup": "npm install && cd client && npm install"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "openai": "^4.20.1",
+    "pg": "^8.11.3",
+    "redis": "^4.6.10",
+    "axios": "^1.6.2",
+    "socket.io": "^4.7.4",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "concurrently": "^8.2.2"
+  },
+  "keywords": [
+    "tennis",
+    "ai",
+    "statistics",
+    "nlp",
+    "sports"
+  ],
+  "author": "AskTennis Team",
+  "license": "MIT"
+}
