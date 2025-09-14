@@ -7,7 +7,7 @@ Before setting up AskTennis, make sure you have the following installed:
 - **Node.js** (v16 or higher)
 - **PostgreSQL** (v12 or higher)
 - **Redis** (v6 or higher) - Optional but recommended for caching
-- **OpenAI API Key** - Required for AI functionality
+- **Groq API Key** - Required for AI functionality
 
 ## Quick Start
 
@@ -77,8 +77,8 @@ DB_PASSWORD=your_password_here
 # Redis Configuration (Optional)
 REDIS_URL=redis://localhost:6379
 
-# OpenAI Configuration (Required)
-OPENAI_API_KEY=your_openai_api_key_here
+# Groq Configuration (Required)
+GROQ_API_KEY=your_groq_api_key_here
 ```
 
 ### 4. Seed the Database
@@ -167,10 +167,10 @@ asktennis/
    - Redis is optional - the app will work without it
    - If using Redis, ensure it's running on port 6379
 
-3. **OpenAI API Error**
+3. **Groq API Error**
    - Verify your API key is correct
    - Check you have sufficient API credits
-   - Ensure the key has GPT-3.5-turbo access
+   - Ensure the key has access to Llama models
 
 4. **Frontend Build Issues**
    - Clear node_modules and reinstall: `rm -rf node_modules && npm install`

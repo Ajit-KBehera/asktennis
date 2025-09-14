@@ -101,10 +101,10 @@ app.get('/api/health', (req, res) => {
 // Debug endpoint to check environment variables
 app.get('/api/debug', (req, res) => {
   res.json({
-    hasOpenAIKey: !!process.env.OPENAI_API_KEY,
-    keyPrefix: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.substring(0, 10) + '...' : 'undefined',
-    isPlaceholder: process.env.OPENAI_API_KEY === 'your_openai_api_key_here',
-    allEnvKeys: Object.keys(process.env).filter(key => key.includes('OPENAI'))
+    hasGroqKey: !!process.env.GROQ_API_KEY,
+    keyPrefix: process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.substring(0, 10) + '...' : 'undefined',
+    isPlaceholder: process.env.GROQ_API_KEY === 'your_groq_api_key_here',
+    allEnvKeys: Object.keys(process.env).filter(key => key.includes('GROQ'))
   });
 });
 
@@ -123,24 +123,24 @@ app.get('/api/test', (req, res) => {
   res.json({ 
     message: 'Server is running updated code',
     timestamp: new Date().toISOString(),
-    hasOpenAIKey: !!process.env.OPENAI_API_KEY
+    hasGroqKey: !!process.env.GROQ_API_KEY
   });
 });
 
-// Test OpenAI API key directly
-app.get('/api/test-openai', async (req, res) => {
+// Test Groq API key directly
+app.get('/api/test-groq', async (req, res) => {
   try {
-    const OpenAI = require('openai');
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
+    const Groq = require('groq-sdk');
+    const groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY
     });
     
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+    const response = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant",
       messages: [
         {
           role: "user",
-          content: "Say 'OpenAI API is working' if you can read this."
+          content: "Say 'Groq API is working' if you can read this."
         }
       ],
       max_tokens: 10
@@ -148,7 +148,7 @@ app.get('/api/test-openai', async (req, res) => {
     
     res.json({ 
       success: true,
-      message: 'OpenAI API is working!',
+      message: 'Groq API is working!',
       response: response.choices[0].message.content
     });
   } catch (error) {

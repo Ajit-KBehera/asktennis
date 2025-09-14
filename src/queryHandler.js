@@ -1,10 +1,10 @@
-const OpenAI = require('openai');
+const Groq = require('groq-sdk');
 const database = require('./database');
 
 class TennisQueryHandler {
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
+    this.groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY
     });
     
     // Tennis-specific query patterns and responses
@@ -23,19 +23,19 @@ class TennisQueryHandler {
     try {
       console.log(`Processing query: "${question}"`);
       
-      // Check if OpenAI API key is configured
+      // Check if Groq API key is configured
       console.log('API Key check:', {
-        hasKey: !!process.env.OPENAI_API_KEY,
-        keyValue: process.env.OPENAI_API_KEY ? process.env.OPENAI_API_KEY.substring(0, 10) + '...' : 'undefined',
-        isPlaceholder: process.env.OPENAI_API_KEY === 'your_openai_api_key_here'
+        hasKey: !!process.env.GROQ_API_KEY,
+        keyValue: process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.substring(0, 10) + '...' : 'undefined',
+        isPlaceholder: process.env.GROQ_API_KEY === 'your_groq_api_key_here'
       });
       
-      if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'your_openai_api_key_here') {
-        console.log('OpenAI API key not configured, using fallback mode');
+      if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'your_groq_api_key_here') {
+        console.log('Groq API key not configured, using fallback mode');
         // Get some sample data and provide a helpful message
         const sampleData = this.getSampleData();
         return {
-          answer: "🎾 AskTennis is working! However, to get intelligent AI-powered answers, please add your OpenAI API key to the .env file. You can get one from https://platform.openai.com/api-keys. Currently showing sample data.",
+          answer: "🎾 AskTennis is working! However, to get intelligent AI-powered answers, please add your Groq API key to the .env file. You can get one from https://console.groq.com/keys. Currently showing sample data.",
           data: sampleData,
           queryType: 'fallback',
           confidence: 0.5
@@ -109,8 +109,8 @@ class TennisQueryHandler {
         Focus on tennis-specific entities and be precise about what data is being requested.
       `;
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+      const response = await this.groq.chat.completions.create({
+        model: "llama-3.1-8b-instant",
         messages: [
           {
             role: "system",
@@ -182,8 +182,8 @@ class TennisQueryHandler {
         If asking about specific players, use WHERE clauses with player names.
       `;
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+      const response = await this.groq.chat.completions.create({
+        model: "llama-3.1-8b-instant",
         messages: [
           {
             role: "system",
@@ -257,8 +257,8 @@ class TennisQueryHandler {
         Don't include phrases like "Based on the data" or "According to the results" - just give the answer directly.
       `;
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+      const response = await this.groq.chat.completions.create({
+        model: "llama-3.1-8b-instant",
         messages: [
           {
             role: "system",
@@ -299,17 +299,17 @@ class TennisQueryHandler {
     if (lowerQuestion.includes('most') || lowerQuestion.includes('highest') || lowerQuestion.includes('best')) {
       if (data.length > 0) {
         const topPlayer = data[0];
-        return `Based on the available data, ${topPlayer.name}${topPlayer.country ? ` from ${topPlayer.country}` : ''} appears to be at the top. However, for more detailed and accurate answers, please add your OpenAI API key to the .env file.`;
+        return `Based on the available data, ${topPlayer.name}${topPlayer.country ? ` from ${topPlayer.country}` : ''} appears to be at the top. However, for more detailed and accurate answers, please add your Groq API key to the .env file.`;
       }
     }
     
     if (lowerQuestion.includes('who') && data.length > 0) {
       const players = data.slice(0, 3).map(p => p.name).join(', ');
-      return `The players in our database include: ${players}. For more detailed answers about tennis statistics, please add your OpenAI API key to the .env file.`;
+      return `The players in our database include: ${players}. For more detailed answers about tennis statistics, please add your Groq API key to the .env file.`;
     }
     
     if (lowerQuestion.includes('record') || lowerQuestion.includes('against')) {
-      return "I can see tennis player data in the database, but for detailed head-to-head records and match statistics, please add your OpenAI API key to the .env file to enable AI-powered analysis.";
+      return "I can see tennis player data in the database, but for detailed head-to-head records and match statistics, please add your Groq API key to the .env file to enable AI-powered analysis.";
     }
     
     // Default fallback
@@ -317,10 +317,10 @@ class TennisQueryHandler {
     const keys = Object.keys(firstResult);
     
     if (keys.includes('name')) {
-      return `I found data for ${firstResult.name}${firstResult.country ? ` from ${firstResult.country}` : ''} in our database. For more detailed and intelligent answers, please add your OpenAI API key to the .env file.`;
+      return `I found data for ${firstResult.name}${firstResult.country ? ` from ${firstResult.country}` : ''} in our database. For more detailed and intelligent answers, please add your Groq API key to the .env file.`;
     }
     
-    return `I found some tennis data, but for better answers please add your OpenAI API key to the .env file. Here's what I found: ${JSON.stringify(data[0])}`;
+    return `I found some tennis data, but for better answers please add your Groq API key to the .env file. Here's what I found: ${JSON.stringify(data[0])}`;
   }
 
   getSampleData() {

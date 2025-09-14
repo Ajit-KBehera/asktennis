@@ -69,7 +69,7 @@ An AI-powered tennis statistics query system similar to ESPN Cricinfo's AskCrici
 - **Framer Motion** - Animations
 
 ### AI/ML
-- **OpenAI GPT-3/4** - Natural language processing
+- **Groq Cloud API** - Fast inference with Llama models
 - **Custom Tennis Parser** - Domain-specific understanding
 - **Query Optimization** - Performance tuning
 
