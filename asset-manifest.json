@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/asktennis/static/css/main.f82057e6.css",
+    "main.js": "/asktennis/static/js/main.43624a50.js",
+    "static/js/453.a3c1d153.chunk.js": "/asktennis/static/js/453.a3c1d153.chunk.js",
+    "index.html": "/asktennis/index.html",
+    "main.f82057e6.css.map": "/asktennis/static/css/main.f82057e6.css.map",
+    "main.43624a50.js.map": "/asktennis/static/js/main.43624a50.js.map",
+    "453.a3c1d153.chunk.js.map": "/asktennis/static/js/453.a3c1d153.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.f82057e6.css",
+    "static/js/main.43624a50.js"
+  ]
+}
