@@ -37,6 +37,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from React build in production
 if (process.env.NODE_ENV === 'production') {
+  console.log('Serving static files from:', path.join(__dirname, 'client/build'));
   app.use(express.static(path.join(__dirname, 'client/build')));
 }
 
@@ -131,6 +132,33 @@ app.get('/api/test', (req, res) => {
     timestamp: new Date().toISOString(),
     hasGroqKey: !!process.env.GROQ_API_KEY
   });
+});
+
+// Debug endpoint to check build files
+app.get('/api/debug-build', (req, res) => {
+  const fs = require('fs');
+  const buildPath = path.join(__dirname, 'client/build');
+  const indexPath = path.join(buildPath, 'index.html');
+  
+  try {
+    const buildExists = fs.existsSync(buildPath);
+    const indexExists = fs.existsSync(indexPath);
+    const buildContents = buildExists ? fs.readdirSync(buildPath) : [];
+    
+    res.json({
+      buildPath,
+      buildExists,
+      indexExists,
+      buildContents,
+      nodeEnv: process.env.NODE_ENV
+    });
+  } catch (error) {
+    res.json({
+      error: error.message,
+      buildPath,
+      nodeEnv: process.env.NODE_ENV
+    });
+  }
 });
 
 // Test Groq API key directly
