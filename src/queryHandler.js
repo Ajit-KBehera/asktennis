@@ -17,6 +17,8 @@ class TennisQueryHandler {
       surfaceAnalysis: /(?:clay|grass|hard court|surface|indoor|outdoor)/i,
       rankingQueries: /(?:ranking|rank|number one|top.*rank|position)/i
     };
+
+    this.defaultTimeoutMs = Number(process.env.QUERY_TIMEOUT_MS || 15000);
   }
 
   async processQuery(question, userId = null) {
@@ -46,22 +48,22 @@ class TennisQueryHandler {
       
       // Analyze the query to determine intent
       console.log('Starting query analysis...');
-      const queryAnalysis = await this.analyzeQuery(question);
+      const queryAnalysis = await this.withTimeout(() => this.analyzeQuery(question), this.defaultTimeoutMs);
       console.log('Query analysis completed:', queryAnalysis);
       
       // Generate SQL query based on analysis
       console.log('Generating SQL query...');
-      const sqlQuery = await this.generateSQLQuery(question, queryAnalysis);
+      const sqlQuery = await this.withTimeout(() => this.generateSQLQuery(question, queryAnalysis), this.defaultTimeoutMs);
       console.log('SQL query generated:', sqlQuery);
       
       // Execute the query
       console.log('Executing database query...');
-      const queryResult = await this.executeQuery(sqlQuery);
+      const queryResult = await this.withTimeout(() => this.executeQuery(sqlQuery), this.defaultTimeoutMs);
       console.log('Database query result:', queryResult);
       
       // Generate natural language response
       console.log('Generating AI answer...');
-      const answer = await this.generateAnswer(question, queryResult, queryAnalysis);
+      const answer = await this.withTimeout(() => this.generateAnswer(question, queryResult, queryAnalysis), this.defaultTimeoutMs);
       console.log('AI answer generated:', answer);
       
       return {
@@ -82,6 +84,20 @@ class TennisQueryHandler {
         confidence: 0
       };
     }
+  }
+
+  async withTimeout(asyncFn, timeoutMs) {
+    const timeout = new Promise((_, reject) => {
+      const id = setTimeout(() => {
+        clearTimeout(id);
+        reject(new Error(`Operation timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+
+    return Promise.race([
+      (async () => await asyncFn())(),
+      timeout
+    ]);
   }
 
   async analyzeQuery(question) {
