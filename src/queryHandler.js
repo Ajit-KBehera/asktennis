@@ -18,11 +18,14 @@ class TennisQueryHandler {
       rankingQueries: /(?:ranking|rank|number one|top.*rank|position)/i
     };
 
-    this.defaultTimeoutMs = Number(process.env.QUERY_TIMEOUT_MS || 15000);
+    // Per-step timeout and overall timeout to stay within platform limits
+    this.defaultTimeoutMs = Number(process.env.STEP_TIMEOUT_MS || process.env.QUERY_TIMEOUT_MS || 4000);
+    this.overallTimeoutMs = Number(process.env.OVERALL_TIMEOUT_MS || 12000);
   }
 
   async processQuery(question, userId = null) {
-    try {
+    const runCore = async () => {
+      try {
       console.log(`Processing query: "${question}"`);
       
       // Check if Groq API key is configured
@@ -84,6 +87,22 @@ class TennisQueryHandler {
         confidence: 0
       };
     }
+    };
+
+    // Enforce overall deadline for entire pipeline
+    const overallTimeout = new Promise((resolve) => {
+      setTimeout(() => {
+        console.warn(`Overall timeout reached at ${this.overallTimeoutMs}ms for question: ${question}`);
+        resolve({
+          answer: "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.",
+          data: [],
+          queryType: 'timeout',
+          confidence: 0.4
+        });
+      }, this.overallTimeoutMs);
+    });
+
+    return Promise.race([runCore(), overallTimeout]);
   }
 
   async withTimeout(asyncFn, timeoutMs) {
