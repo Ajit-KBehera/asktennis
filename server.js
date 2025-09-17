@@ -198,11 +198,18 @@ const PORT = process.env.PORT || 5000;
 async function initialize() {
   try {
     await database.connect();
-    await cache.connect();
-    console.log('Database and cache connections established');
+    console.log('Database connection established');
   } catch (error) {
-    console.error('Failed to initialize connections:', error);
-    process.exit(1);
+    console.error('Failed to initialize database connection:', error);
+    console.log('Continuing without database connection...');
+  }
+  
+  try {
+    await cache.connect();
+    console.log('Cache connection established');
+  } catch (error) {
+    console.error('Failed to initialize cache connection:', error);
+    console.log('Continuing without cache...');
   }
 }
 
