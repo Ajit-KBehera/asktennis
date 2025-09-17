@@ -122,8 +122,6 @@ env.bak/
 venv.bak/
 
 # Docker
-.dockerignore
-Dockerfile
 docker-compose.yml
 docker-compose.override.yml
 
