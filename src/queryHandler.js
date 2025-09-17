@@ -35,7 +35,7 @@ class TennisQueryHandler {
         // Get some sample data and provide a helpful message
         const sampleData = this.getSampleData();
         return {
-          answer: "🎾 AskTennis is working! However, to get intelligent AI-powered answers, please add your Groq API key to the .env file. You can get one from https://console.groq.com/keys. Currently showing sample data.",
+          answer: "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.",
           data: sampleData,
           queryType: 'fallback',
           confidence: 0.5
@@ -76,7 +76,7 @@ class TennisQueryHandler {
       
       // Fallback response for errors
       return {
-        answer: "I'm sorry, I encountered an issue processing your tennis question. Could you please rephrase it or try asking about a different aspect of tennis?",
+        answer: "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.",
         data: null,
         queryType: 'error',
         confidence: 0
@@ -290,7 +290,7 @@ class TennisQueryHandler {
 
   generateFallbackAnswer(question, data) {
     if (!data || data.length === 0) {
-      return "I don't have the specific tennis data you're looking for at the moment. Please make sure the database is properly seeded with tennis data.";
+      return "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.";
     }
 
     // Try to provide a more intelligent answer based on the question
@@ -299,28 +299,20 @@ class TennisQueryHandler {
     if (lowerQuestion.includes('most') || lowerQuestion.includes('highest') || lowerQuestion.includes('best')) {
       if (data.length > 0) {
         const topPlayer = data[0];
-        return `Based on the available data, ${topPlayer.name}${topPlayer.country ? ` from ${topPlayer.country}` : ''} appears to be at the top. However, for more detailed and accurate answers, please add your Groq API key to the .env file.`;
+        return `While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.`;
       }
     }
     
     if (lowerQuestion.includes('who') && data.length > 0) {
-      const players = data.slice(0, 3).map(p => p.name).join(', ');
-      return `The players in our database include: ${players}. For more detailed answers about tennis statistics, please add your Groq API key to the .env file.`;
+      return "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.";
     }
     
     if (lowerQuestion.includes('record') || lowerQuestion.includes('against')) {
-      return "I can see tennis player data in the database, but for detailed head-to-head records and match statistics, please add your Groq API key to the .env file to enable AI-powered analysis.";
+      return "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.";
     }
     
     // Default fallback
-    const firstResult = data[0];
-    const keys = Object.keys(firstResult);
-    
-    if (keys.includes('name')) {
-      return `I found data for ${firstResult.name}${firstResult.country ? ` from ${firstResult.country}` : ''} in our database. For more detailed and intelligent answers, please add your Groq API key to the .env file.`;
-    }
-    
-    return `I found some tennis data, but for better answers please add your Groq API key to the .env file. Here's what I found: ${JSON.stringify(data[0])}`;
+    return "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.";
   }
 
   getSampleData() {
