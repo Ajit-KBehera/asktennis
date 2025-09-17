@@ -8,9 +8,10 @@
     "server": "nodemon server.js",
     "client": "cd client && npm start",
     "build": "cd client && npm run build",
-    "start": "node server.js",
+    "start": "npm run build && node server.js",
     "seed": "node seed.js",
-    "setup": "npm install && cd client && npm install"
+    "setup": "npm install && cd client && npm install",
+    "postinstall": "cd client && npm install"
   },
   "dependencies": {
     "axios": "^1.6.2",
@@ -36,5 +37,9 @@
     "sports"
   ],
   "author": "AskTennis Team",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
 }
