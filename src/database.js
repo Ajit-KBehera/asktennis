@@ -7,16 +7,27 @@ class Database {
 
   async connect() {
     try {
-      this.pool = new Pool({
-        user: process.env.DB_USER || 'ajitbehera',
-        host: process.env.DB_HOST || 'localhost',
-        database: process.env.DB_NAME || 'asktennis',
-        password: process.env.DB_PASSWORD || 'password',
-        port: process.env.DB_PORT || 5432,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
-      });
+      // Use DATABASE_URL if available (Railway), otherwise fall back to individual variables
+      const config = process.env.DATABASE_URL 
+        ? {
+            connectionString: process.env.DATABASE_URL,
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+            max: 20,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 2000,
+          }
+        : {
+            user: process.env.DB_USER || 'ajitbehera',
+            host: process.env.DB_HOST || 'localhost',
+            database: process.env.DB_NAME || 'asktennis',
+            password: process.env.DB_PASSWORD || 'password',
+            port: process.env.DB_PORT || 5432,
+            max: 20,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 2000,
+          };
+
+      this.pool = new Pool(config);
 
       // Test the connection
       const client = await this.pool.connect();
