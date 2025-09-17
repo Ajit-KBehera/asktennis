@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const path = require('path');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 require('dotenv').config();
@@ -35,27 +34,7 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Per-request timeout to avoid hanging responses
-app.use((req, res, next) => {
-  const timeoutMs = Number(process.env.REQUEST_TIMEOUT_MS || 20000);
-  res.setTimeout(timeoutMs, () => {
-    console.error(`Request timed out after ${timeoutMs}ms:`, req.method, req.originalUrl);
-    if (!res.headersSent) {
-      res.status(504).json({ error: 'Request timeout' });
-    }
-  });
-  next();
-});
-
-// Serve static files from the React app build directory
-app.use(express.static(path.join(__dirname, 'client/build')));
-
 // Routes
-// Simple echo route to validate POST handling
-app.post('/api/echo', (req, res) => {
-  res.json({ ok: true, body: req.body, timestamp: new Date().toISOString() });
-});
-
 app.post('/api/query', async (req, res) => {
   try {
     console.log('=== QUERY ENDPOINT CALLED ===');
@@ -204,9 +183,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Catch all handler: send back React's index.html file for client-side routing
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({ 
+    error: 'Endpoint not found' 
+  });
 });
 
 const PORT = process.env.PORT || 5000;
@@ -215,18 +196,11 @@ const PORT = process.env.PORT || 5000;
 async function initialize() {
   try {
     await database.connect();
-    console.log('Database connection established');
-  } catch (error) {
-    console.error('Failed to initialize database connection:', error);
-    console.log('Continuing without database connection...');
-  }
-  
-  try {
     await cache.connect();
-    console.log('Cache connection established');
+    console.log('Database and cache connections established');
   } catch (error) {
-    console.error('Failed to initialize cache connection:', error);
-    console.log('Continuing without cache...');
+    console.error('Failed to initialize connections:', error);
+    process.exit(1);
   }
 }
 

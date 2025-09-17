@@ -18,9 +18,7 @@ class TennisQueryHandler {
       rankingQueries: /(?:ranking|rank|number one|top.*rank|position)/i
     };
 
-    // Per-step timeout and overall timeout to stay within platform limits
-    this.defaultTimeoutMs = Number(process.env.STEP_TIMEOUT_MS || process.env.QUERY_TIMEOUT_MS || 4000);
-    this.overallTimeoutMs = Number(process.env.OVERALL_TIMEOUT_MS || 12000);
+    // No global timeouts in original demo mode
   }
 
   async processQuery(question, userId = null) {
@@ -51,22 +49,22 @@ class TennisQueryHandler {
       
       // Analyze the query to determine intent
       console.log('Starting query analysis...');
-      const queryAnalysis = await this.withTimeout(() => this.analyzeQuery(question), this.defaultTimeoutMs);
+      const queryAnalysis = await this.analyzeQuery(question);
       console.log('Query analysis completed:', queryAnalysis);
       
       // Generate SQL query based on analysis
       console.log('Generating SQL query...');
-      const sqlQuery = await this.withTimeout(() => this.generateSQLQuery(question, queryAnalysis), this.defaultTimeoutMs);
+      const sqlQuery = await this.generateSQLQuery(question, queryAnalysis);
       console.log('SQL query generated:', sqlQuery);
       
       // Execute the query
       console.log('Executing database query...');
-      const queryResult = await this.withTimeout(() => this.executeQuery(sqlQuery), this.defaultTimeoutMs);
+      const queryResult = await this.executeQuery(sqlQuery);
       console.log('Database query result:', queryResult);
       
       // Generate natural language response
       console.log('Generating AI answer...');
-      const answer = await this.withTimeout(() => this.generateAnswer(question, queryResult, queryAnalysis), this.defaultTimeoutMs);
+      const answer = await this.generateAnswer(question, queryResult, queryAnalysis);
       console.log('AI answer generated:', answer);
       
       return {
@@ -89,35 +87,9 @@ class TennisQueryHandler {
     }
     };
 
-    // Enforce overall deadline for entire pipeline
-    const overallTimeout = new Promise((resolve) => {
-      setTimeout(() => {
-        console.warn(`Overall timeout reached at ${this.overallTimeoutMs}ms for question: ${question}`);
-        resolve({
-          answer: "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.",
-          data: [],
-          queryType: 'timeout',
-          confidence: 0.4
-        });
-      }, this.overallTimeoutMs);
-    });
-
-    return Promise.race([runCore(), overallTimeout]);
+    return runCore();
   }
 
-  async withTimeout(asyncFn, timeoutMs) {
-    const timeout = new Promise((_, reject) => {
-      const id = setTimeout(() => {
-        clearTimeout(id);
-        reject(new Error(`Operation timed out after ${timeoutMs}ms`));
-      }, timeoutMs);
-    });
-
-    return Promise.race([
-      (async () => await asyncFn())(),
-      timeout
-    ]);
-  }
 
   async analyzeQuery(question) {
     try {

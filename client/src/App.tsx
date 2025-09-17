@@ -14,7 +14,7 @@ interface QueryResult {
   timestamp: string;
 }
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://asktennis-production.up.railway.app';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 function App() {
   const [queryHistory, setQueryHistory] = useState<QueryResult[]>([]);
