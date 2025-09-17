@@ -35,10 +35,27 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Per-request timeout to avoid hanging responses
+app.use((req, res, next) => {
+  const timeoutMs = Number(process.env.REQUEST_TIMEOUT_MS || 20000);
+  res.setTimeout(timeoutMs, () => {
+    console.error(`Request timed out after ${timeoutMs}ms:`, req.method, req.originalUrl);
+    if (!res.headersSent) {
+      res.status(504).json({ error: 'Request timeout' });
+    }
+  });
+  next();
+});
+
 // Serve static files from the React app build directory
 app.use(express.static(path.join(__dirname, 'client/build')));
 
 // Routes
+// Simple echo route to validate POST handling
+app.post('/api/echo', (req, res) => {
+  res.json({ ok: true, body: req.body, timestamp: new Date().toISOString() });
+});
+
 app.post('/api/query', async (req, res) => {
   try {
     console.log('=== QUERY ENDPOINT CALLED ===');
