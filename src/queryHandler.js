@@ -36,7 +36,7 @@ class TennisQueryHandler {
         const sampleData = this.getSampleData();
         return {
           answer: "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.",
-          data: sampleData,
+          data: null,
           queryType: 'fallback',
           confidence: 0.5
         };
@@ -227,16 +227,16 @@ class TennisQueryHandler {
         detail: error.detail
       });
       
-      // Return sample data for demonstration
-      console.log('Returning sample data due to SQL error');
-      return this.getSampleData();
+      // Return empty result in demo/error mode to avoid hardcoded player names
+      console.log('Returning empty result due to SQL error');
+      return [];
     }
   }
 
   async generateAnswer(question, data, analysis) {
     try {
       if (!data || data.length === 0) {
-        return "I couldn't find specific data for your question. The tennis database might not have the information you're looking for, or the question might need to be rephrased.";
+        return "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.";
       }
 
       const prompt = `
