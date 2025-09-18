@@ -14,11 +14,15 @@ interface QueryResult {
   timestamp: string;
 }
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || window.location.origin;
+const API_BASE_URL = process.env.REACT_APP_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 function App() {
   const [queryHistory, setQueryHistory] = useState<QueryResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Debug logging
+  console.log('App component loaded');
+  console.log('API_BASE_URL:', API_BASE_URL);
 
   const handleQuery = async (question: string) => {
     if (!question.trim()) return;
@@ -26,6 +30,7 @@ function App() {
     setIsLoading(true);
     
     try {
+      console.log('Making API call to:', `${API_BASE_URL}/api/query`);
       const response = await axios.post(`${API_BASE_URL}/api/query`, {
         question: question.trim(),
         userId: 'user-123' // In a real app, this would come from authentication
@@ -36,6 +41,7 @@ function App() {
       
     } catch (error) {
       console.error('Query error:', error);
+      console.log('Falling back to mock response');
       
       // Demo mode - provide mock responses when backend is not available
       const mockResult: QueryResult = {
