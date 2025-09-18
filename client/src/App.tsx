@@ -35,7 +35,7 @@ function App() {
         question: question.trim(),
         userId: 'user-123' // In a real app, this would come from authentication
       }, {
-        timeout: 10000 // 10 second timeout
+        timeout: 5000 // 5 second timeout
       });
 
       const result: QueryResult = response.data;
@@ -47,8 +47,14 @@ function App() {
         message: error?.message,
         code: error?.code,
         status: error?.response?.status,
-        statusText: error?.response?.statusText
+        statusText: error?.response?.statusText,
+        timeout: error?.code === 'ECONNABORTED'
       });
+      
+      if (error?.code === 'ECONNABORTED') {
+        console.log('Request timed out after 5 seconds');
+      }
+      
       console.log('Falling back to mock response');
       
       // Demo mode - provide mock responses when backend is not available
