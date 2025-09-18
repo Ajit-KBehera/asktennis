@@ -41,13 +41,13 @@ function App() {
       const result: QueryResult = response.data;
       setQueryHistory(prev => [result, ...prev]);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Query error:', error);
       console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        status: error.response?.status,
-        statusText: error.response?.statusText
+        message: error?.message,
+        code: error?.code,
+        status: error?.response?.status,
+        statusText: error?.response?.statusText
       });
       console.log('Falling back to mock response');
       
