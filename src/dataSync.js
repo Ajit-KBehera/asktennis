@@ -91,6 +91,12 @@ class DataSyncService {
    * Update database with live data
    */
   async updateDatabase(liveData) {
+    // Ensure database is connected
+    if (!database.pool) {
+      console.log('🔄 Connecting to database...');
+      await database.connect();
+    }
+    
     const client = await database.getClient();
     
     try {

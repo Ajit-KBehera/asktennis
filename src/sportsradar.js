@@ -172,21 +172,31 @@ class SportsradarAPI {
    * Process rankings data
    */
   processRankings(data, tour) {
-    if (!data || !data.rankings) {
+    if (!data || !data.rankings || !Array.isArray(data.rankings) || data.rankings.length === 0) {
+      console.log('No rankings data found');
       return [];
     }
 
-    return data.rankings.map((ranking, index) => ({
-      ranking: index + 1,
-      player_id: ranking.player?.id,
-      player_name: ranking.player?.name,
-      country: ranking.player?.country_code,
-      points: ranking.points || 0,
-      tour: tour,
-      ranking_date: new Date().toISOString().split('T')[0],
-      previous_ranking: ranking.previous_ranking || null,
-      ranking_movement: ranking.ranking_movement || 0
-    }));
+    // Get the first ranking object (should contain competitor_rankings)
+    const rankingData = data.rankings[0];
+    if (!rankingData || !rankingData.competitor_rankings) {
+      console.log('No competitor_rankings found in ranking data');
+      return [];
+    }
+
+    return rankingData.competitor_rankings.map((ranking) => {
+      return {
+        ranking: ranking.rank,
+        player_id: ranking.competitor?.id,
+        player_name: ranking.competitor?.name || 'Unknown Player',
+        country: ranking.competitor?.country_code || 'UNK',
+        points: ranking.points || 0,
+        tour: tour,
+        ranking_date: new Date().toISOString().split('T')[0],
+        previous_ranking: ranking.previous_ranking || null,
+        ranking_movement: ranking.movement || 0
+      };
+    });
   }
 
   /**
