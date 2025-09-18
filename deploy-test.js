@@ -15,7 +15,10 @@ async function testDeployment() {
   console.log('\n1️⃣  Testing Environment Variables...');
   const requiredEnvVars = [
     'NODE_ENV',
-    'PORT',
+    'PORT'
+  ];
+
+  const railwayProvidedVars = [
     'DATABASE_URL',
     'REDIS_URL'
   ];
@@ -34,6 +37,14 @@ async function testDeployment() {
     } else {
       console.log(`   ❌ ${envVar}: Missing (REQUIRED)`);
       envIssues++;
+    }
+  }
+
+  for (const envVar of railwayProvidedVars) {
+    if (process.env[envVar]) {
+      console.log(`   ✅ ${envVar}: Set`);
+    } else {
+      console.log(`   ⚠️  ${envVar}: Not set locally (Railway will provide)`);
     }
   }
 
@@ -63,28 +74,36 @@ async function testDeployment() {
     return false;
   }
 
-  // Test 3: Database Connection
+  // Test 3: Database Connection (skip if DATABASE_URL not available)
   console.log('\n3️⃣  Testing Database Connection...');
-  try {
-    const database = require('./src/database');
-    await database.connect();
-    console.log('   ✅ Database connection successful');
-    await database.close();
-  } catch (error) {
-    console.log(`   ❌ Database connection failed: ${error.message}`);
-    return false;
+  if (process.env.DATABASE_URL) {
+    try {
+      const database = require('./src/database');
+      await database.connect();
+      console.log('   ✅ Database connection successful');
+      await database.close();
+    } catch (error) {
+      console.log(`   ❌ Database connection failed: ${error.message}`);
+      return false;
+    }
+  } else {
+    console.log('   ⚠️  Skipping database test (DATABASE_URL not available locally)');
   }
 
-  // Test 4: Cache Connection
+  // Test 4: Cache Connection (skip if REDIS_URL not available)
   console.log('\n4️⃣  Testing Cache Connection...');
-  try {
-    const cache = require('./src/cache');
-    await cache.connect();
-    console.log('   ✅ Cache connection successful');
-    await cache.close();
-  } catch (error) {
-    console.log(`   ❌ Cache connection failed: ${error.message}`);
-    return false;
+  if (process.env.REDIS_URL) {
+    try {
+      const cache = require('./src/cache');
+      await cache.connect();
+      console.log('   ✅ Cache connection successful');
+      await cache.close();
+    } catch (error) {
+      console.log(`   ❌ Cache connection failed: ${error.message}`);
+      return false;
+    }
+  } else {
+    console.log('   ⚠️  Skipping cache test (REDIS_URL not available locally)');
   }
 
   // Test 5: Server Startup
