@@ -41,9 +41,8 @@ class DataSyncService {
         return { success: false, reason: 'No data received from Sportsradar' };
       }
 
-      // Check if we have any data to sync (only ATP for now)
-      const hasData = (liveData.atp_rankings && liveData.atp_rankings.length > 0) ||
-                     (liveData.tournaments && liveData.tournaments.length > 0);
+        // Check if we have any data to sync (ATP rankings only for now)
+        const hasData = (liveData.atp_rankings && liveData.atp_rankings.length > 0);
 
       if (!hasData) {
         console.log('⚠️  No valid data to sync, skipping database update');
@@ -52,8 +51,7 @@ class DataSyncService {
           reason: 'No valid data to sync',
           data: {
             atp_rankings: 0,
-            wta_rankings: 0,
-            tournaments: 0
+            wta_rankings: 0
           }
         };
       }
@@ -64,15 +62,14 @@ class DataSyncService {
       this.lastSyncTime = new Date();
       console.log('✅ Data synchronization completed successfully');
       
-      return {
-        success: true,
-        lastSync: this.lastSyncTime,
-        data: {
-          atp_rankings: liveData.atp_rankings.length,
-          wta_rankings: liveData.wta_rankings.length,
-          tournaments: liveData.tournaments.length
-        }
-      };
+        return {
+          success: true,
+          lastSync: this.lastSyncTime,
+          data: {
+            atp_rankings: liveData.atp_rankings.length,
+            wta_rankings: liveData.wta_rankings.length
+          }
+        };
 
     } catch (error) {
       console.error('❌ Data synchronization failed:', error.message);
@@ -101,11 +98,11 @@ class DataSyncService {
     try {
       await client.query('BEGIN');
 
-      // Update players and rankings
-      await this.updatePlayersAndRankings(client, liveData);
-      
-      // Update tournaments
-      await this.updateTournaments(client, liveData);
+        // Update players and rankings
+        await this.updatePlayersAndRankings(client, liveData);
+        
+        // Update competitions (disabled for now due to database issues)
+        // await this.updateCompetitions(client, liveData);
 
       await client.query('COMMIT');
       console.log('✅ Database updated successfully');
@@ -181,7 +178,31 @@ class DataSyncService {
   }
 
   /**
-   * Update tournaments
+   * Update competitions
+   */
+  async updateCompetitions(client, liveData) {
+    console.log('🏆 Updating competitions...');
+
+    if (!liveData.competitions || liveData.competitions.length === 0) {
+      console.log('⚠️  No competitions to update');
+      return;
+    }
+
+    let totalUpdated = 0;
+    for (const competition of liveData.competitions) {
+      try {
+        await this.upsertCompetition(client, competition);
+        totalUpdated++;
+      } catch (error) {
+        console.error(`Error updating competition ${competition.name}:`, error.message);
+      }
+    }
+
+    console.log(`✅ Updated ${totalUpdated} competitions`);
+  }
+
+  /**
+   * Update tournaments (legacy method)
    */
   async updateTournaments(client, liveData) {
     console.log('🏆 Updating tournaments...');
@@ -284,6 +305,50 @@ class DataSyncService {
         rankingData.tour,
         rankingData.ranking_date
       ]);
+    }
+  }
+
+  /**
+   * Upsert competition (insert or update)
+   */
+  async upsertCompetition(client, competitionData) {
+    try {
+      // Truncate name if too long for database
+      const name = competitionData.name ? competitionData.name.substring(0, 255) : 'Unknown Competition';
+      const type = competitionData.type || 'unknown';
+      const level = competitionData.level || 'unknown';
+
+      // First try to update existing competition
+      const updateQuery = `
+        UPDATE tournaments 
+        SET name = $2, type = $3, level = $4, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `;
+      
+      const updateResult = await client.query(updateQuery, [
+        competitionData.id,
+        name,
+        type,
+        level
+      ]);
+
+      // If no rows were updated, insert new competition
+      if (updateResult.rowCount === 0) {
+        const insertQuery = `
+          INSERT INTO tournaments (id, name, type, level, updated_at)
+          VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+        `;
+
+        await client.query(insertQuery, [
+          competitionData.id,
+          name,
+          type,
+          level
+        ]);
+      }
+    } catch (error) {
+      console.error(`Error upserting competition ${competitionData.id}:`, error.message);
+      // Don't throw error to prevent transaction abort
     }
   }
 

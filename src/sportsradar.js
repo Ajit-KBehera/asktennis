@@ -125,12 +125,24 @@ class SportsradarAPI {
    */
   async getCurrentTournaments() {
     try {
-      // For now, return empty array since tournament endpoints are not working
-      // This is a common issue with Sportsradar trial accounts
-      console.log('⚠️  Tournament endpoints not available in trial account, skipping tournaments');
-      return [];
+      // Try the competitions endpoint from the official documentation
+      const data = await this.makeRequest('/competitions.json');
+      return this.processCompetitions(data);
     } catch (error) {
       console.error('Failed to fetch tournaments:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get competitions by category (ATP, WTA, ITF)
+   */
+  async getCompetitionsByCategory(category = 'ATP') {
+    try {
+      const data = await this.makeRequest('/competitions.json', { category });
+      return this.processCompetitions(data);
+    } catch (error) {
+      console.error(`Failed to fetch ${category} competitions:`, error.message);
       return [];
     }
   }
@@ -149,14 +161,66 @@ class SportsradarAPI {
   }
 
   /**
-   * Get player profile
+   * Get player profile (Competitor Profile)
    */
   async getPlayerProfile(playerId) {
     try {
-      const data = await this.makeRequest(`/players/${playerId}/profile.json`);
+      const data = await this.makeRequest(`/competitors/${playerId}/profile.json`);
       return this.processPlayerProfile(data);
     } catch (error) {
       console.error(`Failed to fetch player profile ${playerId}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get player summaries (previous and upcoming matches)
+   */
+  async getPlayerSummaries(playerId) {
+    try {
+      const data = await this.makeRequest(`/competitors/${playerId}/summaries.json`);
+      return this.processPlayerSummaries(data);
+    } catch (error) {
+      console.error(`Failed to fetch player summaries ${playerId}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get daily summaries for a specific date
+   */
+  async getDailySummaries(date) {
+    try {
+      const data = await this.makeRequest(`/schedules/${date}/summaries.json`);
+      return this.processDailySummaries(data);
+    } catch (error) {
+      console.error(`Failed to fetch daily summaries for ${date}:`, error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get live summaries (real-time match updates)
+   */
+  async getLiveSummaries() {
+    try {
+      const data = await this.makeRequest('/schedules/live/summaries.json');
+      return this.processLiveSummaries(data);
+    } catch (error) {
+      console.error('Failed to fetch live summaries:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get sport event summary for a specific match
+   */
+  async getSportEventSummary(eventId) {
+    try {
+      const data = await this.makeRequest(`/sport_events/${eventId}/summary.json`);
+      return this.processSportEventSummary(data);
+    } catch (error) {
+      console.error(`Failed to fetch sport event summary ${eventId}:`, error.message);
       return null;
     }
   }
@@ -207,7 +271,27 @@ class SportsradarAPI {
   }
 
   /**
-   * Process tournaments data
+   * Process competitions data
+   */
+  processCompetitions(data) {
+    if (!data || !data.competitions) {
+      return [];
+    }
+
+    return data.competitions.map(competition => ({
+      id: competition.id,
+      name: competition.name,
+      category: competition.category,
+      type: competition.type,
+      gender: competition.gender,
+      level: competition.level,
+      country_code: competition.country_code,
+      country: competition.country
+    }));
+  }
+
+  /**
+   * Process tournaments data (legacy method)
    */
   processTournaments(data) {
     if (!data || !data.tournaments) {
@@ -308,6 +392,100 @@ class SportsradarAPI {
   }
 
   /**
+   * Process player summaries
+   */
+  processPlayerSummaries(data) {
+    if (!data || !data.competitor) {
+      return null;
+    }
+
+    return {
+      competitor: {
+        id: data.competitor.id,
+        name: data.competitor.name,
+        country_code: data.competitor.country_code
+      },
+      previous_matches: data.previous_matches || [],
+      upcoming_matches: data.upcoming_matches || [],
+      statistics: data.statistics || {}
+    };
+  }
+
+  /**
+   * Process daily summaries
+   */
+  processDailySummaries(data) {
+    if (!data || !data.sport_events) {
+      return [];
+    }
+
+    return data.sport_events.map(event => ({
+      id: event.id,
+      scheduled: event.scheduled,
+      start_time_tbd: event.start_time_tbd,
+      status: event.status,
+      tournament_round: event.tournament_round,
+      season: event.season,
+      tournament: event.tournament,
+      competitors: event.competitors,
+      venue: event.venue,
+      conditions: event.conditions,
+      coverage: event.coverage
+    }));
+  }
+
+  /**
+   * Process live summaries
+   */
+  processLiveSummaries(data) {
+    if (!data || !data.sport_events) {
+      return [];
+    }
+
+    return data.sport_events.map(event => ({
+      id: event.id,
+      scheduled: event.scheduled,
+      status: event.status,
+      tournament_round: event.tournament_round,
+      season: event.season,
+      tournament: event.tournament,
+      competitors: event.competitors,
+      scores: event.scores,
+      statistics: event.statistics,
+      venue: event.venue,
+      conditions: event.conditions
+    }));
+  }
+
+  /**
+   * Process sport event summary
+   */
+  processSportEventSummary(data) {
+    if (!data || !data.sport_event) {
+      return null;
+    }
+
+    return {
+      sport_event: {
+        id: data.sport_event.id,
+        scheduled: data.sport_event.scheduled,
+        start_time_tbd: data.sport_event.start_time_tbd,
+        status: data.sport_event.status,
+        tournament_round: data.sport_event.tournament_round,
+        season: data.sport_event.season,
+        tournament: data.sport_event.tournament,
+        competitors: data.sport_event.competitors,
+        venue: data.sport_event.venue,
+        conditions: data.sport_event.conditions
+      },
+      sport_event_conditions: data.sport_event_conditions,
+      sport_event_status: data.sport_event_status,
+      statistics: data.statistics,
+      timeline: data.timeline
+    };
+  }
+
+  /**
    * Get all available data (rankings, tournaments, etc.)
    */
   async getAllData() {
@@ -322,26 +500,43 @@ class SportsradarAPI {
       // Fetch data sequentially to avoid rate limiting
       const atpRankings = await this.getATPRankings();
       
-      // Add delay between ATP and WTA calls
+      // Add delay between calls
       if (atpRankings && atpRankings.length > 0) {
-        console.log('⏳ Waiting 2 seconds before WTA rankings request...');
+        console.log('⏳ Waiting 2 seconds before next request...');
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
       
       const wtaRankings = await this.getWTARankings();
-      const tournaments = await this.getCurrentTournaments();
+      
+      // Add delay before competitions
+      if (wtaRankings !== null) {
+        console.log('⏳ Waiting 2 seconds before competitions request...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
+      const competitions = await this.getCurrentTournaments();
+      
+      // Add delay before live summaries
+      if (competitions !== null) {
+        console.log('⏳ Waiting 2 seconds before live summaries request...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
+      const liveSummaries = await this.getLiveSummaries();
 
       const result = {
         atp_rankings: atpRankings || [],
         wta_rankings: wtaRankings || [],
-        tournaments: tournaments || [],
+        competitions: competitions || [],
+        live_summaries: liveSummaries || [],
         last_updated: new Date().toISOString()
       };
 
       console.log('✅ Successfully fetched data from Sportsradar');
       console.log(`📊 ATP Rankings: ${result.atp_rankings.length} players`);
       console.log(`📊 WTA Rankings: ${result.wta_rankings.length} players`);
-      console.log(`🏆 Tournaments: ${result.tournaments.length} tournaments`);
+      console.log(`🏆 Competitions: ${result.competitions.length} competitions`);
+      console.log(`⚡ Live Summaries: ${result.live_summaries.length} live events`);
 
       return result;
     } catch (error) {
