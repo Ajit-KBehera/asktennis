@@ -51,7 +51,8 @@ class DataSyncService {
           reason: 'No valid data to sync',
           data: {
             atp_rankings: 0,
-            wta_rankings: 0
+            wta_rankings: 0,
+            competitions: 0
           }
         };
       }
@@ -67,7 +68,8 @@ class DataSyncService {
           lastSync: this.lastSyncTime,
           data: {
             atp_rankings: liveData.atp_rankings.length,
-            wta_rankings: liveData.wta_rankings.length
+            wta_rankings: liveData.wta_rankings.length,
+            competitions: liveData.competitions.length
           }
         };
 
@@ -101,7 +103,7 @@ class DataSyncService {
         // Update players and rankings
         await this.updatePlayersAndRankings(client, liveData);
         
-        // Update competitions (disabled for now due to database issues)
+        // Update competitions (disabled due to database transaction issues)
         // await this.updateCompetitions(client, liveData);
 
       await client.query('COMMIT');
@@ -189,16 +191,29 @@ class DataSyncService {
     }
 
     let totalUpdated = 0;
-    for (const competition of liveData.competitions) {
-      try {
-        await this.upsertCompetition(client, competition);
-        totalUpdated++;
-      } catch (error) {
-        console.error(`Error updating competition ${competition.name}:`, error.message);
+    let totalErrors = 0;
+    
+    // Process competitions in smaller batches to avoid transaction issues
+    const batchSize = 100;
+    const competitions = liveData.competitions;
+    
+    for (let i = 0; i < competitions.length; i += batchSize) {
+      const batch = competitions.slice(i, i + batchSize);
+      console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(competitions.length/batchSize)} (${batch.length} competitions)`);
+      
+      for (const competition of batch) {
+        try {
+          await this.upsertCompetition(client, competition);
+          totalUpdated++;
+        } catch (error) {
+          totalErrors++;
+          console.error(`Error updating competition ${competition.id}:`, error.message);
+          // Continue with next competition instead of failing the entire batch
+        }
       }
     }
 
-    console.log(`✅ Updated ${totalUpdated} competitions`);
+    console.log(`✅ Updated ${totalUpdated} competitions (${totalErrors} errors)`);
   }
 
   /**

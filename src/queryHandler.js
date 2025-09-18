@@ -272,11 +272,13 @@ class TennisQueryHandler {
         Analysis: ${JSON.stringify(analysis)}
         
         Available tables:
-        - players (id, name, country, birth_date, height, weight, playing_hand, turned_pro, current_ranking, career_prize_money)
-        - tournaments (id, name, type, surface, level, location, start_date, end_date, prize_money)
-        - matches (id, tournament_id, player1_id, player2_id, winner_id, score, duration, match_date, round, surface)
+        - players (id, name, country, birth_date, height, weight, playing_hand, turned_pro, current_ranking, career_prize_money, tour)
+        - tournaments (id, name, type, surface, level, location, start_date, end_date, prize_money, status, current_round)
+        - matches (id, tournament_id, player1_id, player2_id, winner_id, score, duration, match_date, round, surface, status)
         - match_stats (id, match_id, player_id, aces, double_faults, first_serve_percentage, first_serve_points_won, second_serve_points_won, break_points_saved, break_points_converted, total_points_won)
-        - rankings (id, player_id, ranking, points, ranking_date)
+        - rankings (id, player_id, ranking, points, ranking_date, tour)
+        
+        IMPORTANT: Use exact column names as shown above. Do NOT use 'turneds_pro' - use 'turned_pro'.
         
         Return ONLY the SQL query, no explanations, no markdown formatting, no code blocks.
         Use proper JOINs and aggregations as needed.
