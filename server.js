@@ -79,11 +79,14 @@ app.post('/api/query', async (req, res) => {
     const result = await tennisQueryHandler.processQuery(question, userId);
     console.log('Result from processQuery:', result);
     
-    // Cache the result for 1 hour
-    await cache.set(cacheKey, {
-      answer: result.answer,
-      data: result.data
-    }, 3600);
+    // Cache the result for 1 hour (but not for ranking queries)
+    if (!isRankingQuery) {
+      const cacheKey = `query:${lowerQuestion}`;
+      await cache.set(cacheKey, {
+        answer: result.answer,
+        data: result.data
+      }, 3600);
+    }
 
     res.json({
       question,
