@@ -58,7 +58,8 @@ class SportsradarAPI {
           
           // Handle rate limiting
           if (error.response.status === 429) {
-            const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+            const retryAfter = error.response.headers['retry-after'];
+            const delay = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, attempt) * 2000; // Longer delays
             console.log(`⏳ Rate limited, waiting ${delay}ms before retry...`);
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
@@ -101,8 +102,9 @@ class SportsradarAPI {
    */
   async getWTARankings() {
     try {
-      // Add delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Add longer delay to avoid rate limiting
+      console.log('⏳ Waiting 3 seconds before WTA rankings request...');
+      await new Promise(resolve => setTimeout(resolve, 3000));
       const data = await this.makeRequest('/rankings.json', { type: 'wta' });
       return this.processRankings(data, 'WTA');
     } catch (error) {
@@ -116,26 +118,9 @@ class SportsradarAPI {
    */
   async getCurrentTournaments() {
     try {
-      // Try different tournament endpoints
-      const endpoints = [
-        '/tournaments.json',
-        '/tournaments/current.json',
-        '/tournaments/schedule.json'
-      ];
-      
-      for (const endpoint of endpoints) {
-        try {
-          const data = await this.makeRequest(endpoint);
-          if (data && data.tournaments) {
-            return this.processTournaments(data);
-          }
-        } catch (error) {
-          console.log(`Tournament endpoint ${endpoint} failed: ${error.message}`);
-          continue;
-        }
-      }
-      
-      console.warn('All tournament endpoints failed, returning empty array');
+      // For now, return empty array since tournament endpoints are not working
+      // This is a common issue with Sportsradar trial accounts
+      console.log('⚠️  Tournament endpoints not available in trial account, skipping tournaments');
       return [];
     } catch (error) {
       console.error('Failed to fetch tournaments:', error.message);
@@ -319,6 +304,13 @@ class SportsradarAPI {
       
       // Fetch data sequentially to avoid rate limiting
       const atpRankings = await this.getATPRankings();
+      
+      // Add delay between ATP and WTA calls
+      if (atpRankings && atpRankings.length > 0) {
+        console.log('⏳ Waiting 2 seconds before WTA rankings request...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      
       const wtaRankings = await this.getWTARankings();
       const tournaments = await this.getCurrentTournaments();
 

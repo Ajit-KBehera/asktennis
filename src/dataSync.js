@@ -48,7 +48,15 @@ class DataSyncService {
 
       if (!hasData) {
         console.log('⚠️  No valid data to sync, skipping database update');
-        return { success: false, reason: 'No valid data to sync' };
+        return { 
+          success: false, 
+          reason: 'No valid data to sync',
+          data: {
+            atp_rankings: 0,
+            wta_rankings: 0,
+            tournaments: 0
+          }
+        };
       }
 
       // Update database with live data
