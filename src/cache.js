@@ -122,25 +122,84 @@ class Cache {
     }
   }
 
+  /**
+   * Get cache statistics
+   */
   async getStats() {
     if (!this.client || !this.client.isOpen) {
-      return { connected: false };
+      return { connected: false, keys: 0, memory: 'N/A' };
     }
 
     try {
       const info = await this.client.info('memory');
-      const keyspace = await this.client.info('keyspace');
+      const keys = await this.client.dbSize();
       
       return {
         connected: true,
+        keys: keys,
         memory: info,
-        keyspace: keyspace
+        uptime: await this.client.info('server').then(info => info.match(/uptime_in_seconds:(\d+)/)?.[1] || 'N/A')
       };
     } catch (error) {
       console.error('Cache stats error:', error);
-      return { connected: false, error: error.message };
+      return { connected: true, keys: 'N/A', memory: 'N/A', error: error.message };
     }
   }
+
+  /**
+   * Set with automatic expiration based on data type
+   */
+  async setSmart(key, value, dataType = 'general') {
+    if (!this.client || !this.client.isOpen) {
+      return false;
+    }
+
+    try {
+      // Set different expiration times based on data type
+      let ttl = 3600; // Default 1 hour
+      
+      switch (dataType) {
+        case 'ranking':
+          ttl = 1800; // 30 minutes for rankings (more dynamic)
+          break;
+        case 'player':
+          ttl = 7200; // 2 hours for player data (less dynamic)
+          break;
+        case 'tournament':
+          ttl = 3600; // 1 hour for tournament data
+          break;
+        case 'query':
+          ttl = 1800; // 30 minutes for query results
+          break;
+        default:
+          ttl = 3600; // 1 hour default
+      }
+
+      await this.client.setEx(key, ttl, JSON.stringify(value));
+      return true;
+    } catch (error) {
+      console.error('Cache set error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get with fallback handling
+   */
+  async getSmart(key) {
+    if (!this.client || !this.client.isOpen) {
+      return null;
+    }
+
+    try {
+      const value = await this.client.get(key);
+      return value ? JSON.parse(value) : null;
+    } catch (error) {
+      console.error('Cache get error:', error);
+      return null;
+    }
+  }
+
 
   async close() {
     if (this.client && this.client.isOpen) {

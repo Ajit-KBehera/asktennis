@@ -16,7 +16,12 @@ class TennisQueryHandler {
       performanceMetrics: /(?:first serve|second serve|break point|ace|double fault|percentage|rate)/i,
       historicalData: /(?:youngest|oldest|first|last|earliest|latest|when|year)/i,
       surfaceAnalysis: /(?:clay|grass|hard court|surface|indoor|outdoor)/i,
-      rankingQueries: /(?:ranking|rank|number one|top.*rank|position)/i
+      rankingQueries: /(?:ranking|rank|number one|top.*rank|position)/i,
+      playerInfo: /(?:tell me about|information about|who is|profile of).*(?:player|tennis player)/i,
+      tournamentInfo: /(?:tournament|competition|event).*(?:happening|upcoming|current|schedule)/i,
+      countryQueries: /(?:players from|tennis players in|from country|nationality)/i,
+      ageQueries: /(?:youngest|oldest|age|born|birth)/i,
+      prizeMoney: /(?:prize money|earnings|salary|income|wealthy|richest)/i
     };
 
     // No global timeouts in original demo mode
@@ -152,14 +157,15 @@ class TennisQueryHandler {
         console.error('Direct database query fallback also failed:', fallbackError);
       }
       
-      // Final fallback response
+      // Final fallback response with better error handling
       return {
-        answer: "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.",
+        answer: this.generateFallbackAnswer(question, []),
         data: null,
         queryType: 'error',
         confidence: 0,
         dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
-        lastUpdated: dataSync.getSyncStatus().lastSync
+        lastUpdated: dataSync.getSyncStatus().lastSync,
+        error: error.message
       };
     }
     };
@@ -340,10 +346,20 @@ class TennisQueryHandler {
     // Remove any remaining markdown formatting
     cleanSQL = cleanSQL.replace(/^```.*$/gm, '').trim();
     
+    // Add query timeout and optimization hints
+    const startTime = Date.now();
     console.log('Executing SQL:', cleanSQL);
-    const result = await database.query(cleanSQL);
-    console.log('SQL query result:', result.rows);
-    return result.rows;
+    
+    try {
+      const result = await database.query(cleanSQL);
+      const endTime = Date.now();
+      console.log(`SQL query completed in ${endTime - startTime}ms, returned ${result.rows.length} rows`);
+      return result.rows;
+    } catch (error) {
+      const endTime = Date.now();
+      console.error(`SQL query failed after ${endTime - startTime}ms:`, error.message);
+      throw error;
+    }
   }
 
   async generateAnswer(question, data, analysis) {
@@ -410,7 +426,22 @@ class TennisQueryHandler {
 
   generateFallbackAnswer(question, data) {
     if (!data || data.length === 0) {
-      return "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.";
+      const lowerQuestion = question.toLowerCase();
+      
+      // Provide specific error messages based on query type
+      if (lowerQuestion.includes('tournament') || lowerQuestion.includes('won') || lowerQuestion.includes('winner')) {
+        return "I don't have access to tournament results or match outcomes in the current data. I can only provide current player rankings and basic player information. For tournament results, you would need access to our full match database.";
+      }
+      
+      if (lowerQuestion.includes('match') || lowerQuestion.includes('head to head') || lowerQuestion.includes('vs')) {
+        return "I don't have access to match results or head-to-head records in the current data. I can only provide current player rankings and basic player information. For match statistics, you would need access to our full match database.";
+      }
+      
+      if (lowerQuestion.includes('statistics') || lowerQuestion.includes('stats') || lowerQuestion.includes('performance')) {
+        return "I don't have access to detailed player statistics in the current data. I can only provide current player rankings and basic player information. For detailed statistics, you would need access to our full match database.";
+      }
+      
+      return "I don't have enough data to answer that question right now. I can only provide current player rankings and basic player information. For more detailed tennis data, you would need access to our full database.";
     }
 
     // Try to provide a more intelligent answer based on the question
@@ -419,20 +450,21 @@ class TennisQueryHandler {
     if (lowerQuestion.includes('most') || lowerQuestion.includes('highest') || lowerQuestion.includes('best')) {
       if (data.length > 0) {
         const topPlayer = data[0];
-        return `While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.`;
+        return `Based on the available data, ${topPlayer.name || 'the top player'} appears to be leading in this category. However, I have limited data access, so this may not be the complete picture.`;
       }
     }
     
     if (lowerQuestion.includes('who') && data.length > 0) {
-      return "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.";
+      const player = data[0];
+      return `Based on the available data, ${player.name || 'the player you asked about'} is the answer. However, I have limited data access, so this may not be the complete picture.`;
     }
     
     if (lowerQuestion.includes('record') || lowerQuestion.includes('against')) {
-      return "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.";
+      return "I don't have access to head-to-head records or match statistics in the current data. I can only provide current player rankings and basic player information.";
     }
     
-    // Default fallback
-    return "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.";
+    // Default fallback with more helpful message
+    return "I can provide some basic tennis information, but I don't have access to the full database. I can only provide current player rankings and basic player information. For more detailed tennis data, you would need access to our full database.";
   }
 
   getSampleData() {
@@ -538,6 +570,47 @@ class TennisQueryHandler {
         return result.rows;
       }
       
+      // Country-based queries
+      if (lowerQuestion.includes('from') || lowerQuestion.includes('country')) {
+        const countryMatch = lowerQuestion.match(/(?:from|in|country)\s+([a-z]+)/i);
+        if (countryMatch) {
+          const country = countryMatch[1].toUpperCase();
+          const result = await database.query(`
+            SELECT name, country, current_ranking, tour
+            FROM players 
+            WHERE country = $1 AND current_ranking > 0
+            ORDER BY current_ranking 
+            LIMIT 10
+          `, [country]);
+          return result.rows;
+        }
+      }
+      
+      // Age-based queries
+      if (lowerQuestion.includes('youngest') || lowerQuestion.includes('oldest')) {
+        const order = lowerQuestion.includes('youngest') ? 'DESC' : 'ASC';
+        const result = await database.query(`
+          SELECT name, country, current_ranking, birth_date, tour
+          FROM players 
+          WHERE birth_date IS NOT NULL AND current_ranking > 0
+          ORDER BY birth_date ${order}
+          LIMIT 5
+        `);
+        return result.rows;
+      }
+      
+      // Prize money queries
+      if (lowerQuestion.includes('prize') || lowerQuestion.includes('money') || lowerQuestion.includes('earnings')) {
+        const result = await database.query(`
+          SELECT name, country, current_ranking, career_prize_money, tour
+          FROM players 
+          WHERE career_prize_money > 0
+          ORDER BY career_prize_money DESC
+          LIMIT 10
+        `);
+        return result.rows;
+      }
+      
       if (lowerQuestion.includes('most') || lowerQuestion.includes('highest') || lowerQuestion.includes('best')) {
         if (lowerQuestion.includes('ace') || lowerQuestion.includes('aces')) {
           const result = await database.query(`
@@ -624,6 +697,32 @@ class TennisQueryHandler {
       
       if (lowerQuestion.includes('prize') || lowerQuestion.includes('money')) {
         return `${player.name} from ${player.country} has earned the most prize money with $${player.career_prize_money.toLocaleString()}.`;
+      }
+    }
+    
+    // Handle country-based queries
+    if (lowerQuestion.includes('from') || lowerQuestion.includes('country')) {
+      if (data.length > 1) {
+        const country = data[0].country;
+        const playerNames = data.slice(0, 3).map(p => p.name).join(', ');
+        return `Here are the top tennis players from ${country}: ${playerNames}. ${data[0].name} is currently ranked #${data[0].current_ranking}.`;
+      }
+    }
+    
+    // Handle age-based queries
+    if (lowerQuestion.includes('youngest') || lowerQuestion.includes('oldest')) {
+      const ageType = lowerQuestion.includes('youngest') ? 'youngest' : 'oldest';
+      const birthYear = new Date(player.birth_date).getFullYear();
+      const currentYear = new Date().getFullYear();
+      const age = currentYear - birthYear;
+      return `The ${ageType} player in the current rankings is ${player.name} from ${player.country}, who is ${age} years old and currently ranked #${player.current_ranking}.`;
+    }
+    
+    // Handle prize money queries
+    if (lowerQuestion.includes('prize') || lowerQuestion.includes('money') || lowerQuestion.includes('earnings')) {
+      if (data.length > 1) {
+        const topEarners = data.slice(0, 3).map(p => `${p.name} ($${p.career_prize_money ? p.career_prize_money.toLocaleString() : 'N/A'})`).join(', ');
+        return `The top earners in tennis are: ${topEarners}. ${player.name} has earned $${player.career_prize_money ? player.career_prize_money.toLocaleString() : 'N/A'} in career prize money.`;
       }
     }
     
