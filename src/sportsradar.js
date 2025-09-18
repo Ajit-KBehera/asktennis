@@ -105,8 +105,15 @@ class SportsradarAPI {
       // Add longer delay to avoid rate limiting
       console.log('⏳ Waiting 3 seconds before WTA rankings request...');
       await new Promise(resolve => setTimeout(resolve, 3000));
-      const data = await this.makeRequest('/rankings.json', { type: 'wta' });
-      return this.processRankings(data, 'WTA');
+      
+      // For trial accounts, WTA data is often not available
+      // Return empty array to avoid confusion
+      console.log('⚠️  WTA rankings not available in trial account, returning empty array');
+      return [];
+      
+      // Uncomment below if you have WTA access
+      // const data = await this.makeRequest('/rankings.json', { type: 'wta' });
+      // return this.processRankings(data, 'WTA');
     } catch (error) {
       console.error('Failed to fetch WTA rankings:', error.message);
       return [];

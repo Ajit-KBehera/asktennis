@@ -101,6 +101,18 @@ class TennisQueryHandler {
             dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
             lastUpdated: dataSync.getSyncStatus().lastSync
           };
+        } else {
+          // No data from direct query either, generate appropriate response
+          console.log('No data from direct query either, generating appropriate response...');
+          const simpleAnswer = this.generateSimpleAnswer(question, []);
+          return {
+            answer: simpleAnswer,
+            data: [],
+            queryType: queryAnalysis.type,
+            confidence: 0.5, // Lower confidence for no data
+            dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
+            lastUpdated: dataSync.getSyncStatus().lastSync
+          };
         }
       }
       
@@ -447,12 +459,22 @@ class TennisQueryHandler {
       
       const lowerQuestion = question.toLowerCase();
       
+      // Check for tournament questions first
+      if (lowerQuestion.includes('won') || lowerQuestion.includes('winner') || 
+          lowerQuestion.includes('us open') || lowerQuestion.includes('wimbledon') || 
+          lowerQuestion.includes('french open') || lowerQuestion.includes('australian open') ||
+          lowerQuestion.includes('grand slam') || lowerQuestion.includes('tournament')) {
+        // Return empty for tournament questions - we don't have tournament results
+        return [];
+      }
+      
       // Check for specific player queries
       if (lowerQuestion.includes('jannik') || lowerQuestion.includes('sinner')) {
         const result = await database.query(`
           SELECT name, country, current_ranking, tour, birth_date, height, weight, playing_hand, turned_pro, career_prize_money
           FROM players 
           WHERE name ILIKE '%sinner%' OR name ILIKE '%jannik%'
+          AND tour = 'ATP'
           ORDER BY current_ranking ASC
           LIMIT 1
         `);
@@ -464,6 +486,7 @@ class TennisQueryHandler {
           SELECT name, country, current_ranking, tour, birth_date, height, weight, playing_hand, turned_pro, career_prize_money
           FROM players 
           WHERE name ILIKE '%alcaraz%' OR name ILIKE '%carlos%'
+          AND tour = 'ATP'
           ORDER BY current_ranking ASC
           LIMIT 1
         `);
@@ -475,6 +498,7 @@ class TennisQueryHandler {
           SELECT name, country, current_ranking, tour, birth_date, height, weight, playing_hand, turned_pro, career_prize_money
           FROM players 
           WHERE name ILIKE '%djokovic%' OR name ILIKE '%novak%'
+          AND tour = 'ATP'
           ORDER BY current_ranking ASC
           LIMIT 1
         `);
@@ -539,6 +563,16 @@ class TennisQueryHandler {
    */
   generateSimpleAnswer(question, data) {
     if (!data || data.length === 0) {
+      const lowerQuestion = question.toLowerCase();
+      
+      // Handle tournament questions specifically
+      if (lowerQuestion.includes('won') || lowerQuestion.includes('winner') || 
+          lowerQuestion.includes('us open') || lowerQuestion.includes('wimbledon') || 
+          lowerQuestion.includes('french open') || lowerQuestion.includes('australian open') ||
+          lowerQuestion.includes('grand slam') || lowerQuestion.includes('tournament')) {
+        return "I don't have access to tournament results or match outcomes in the current data. I can only provide current player rankings and basic player information.";
+      }
+      
       return "I don't have enough data to answer that question right now.";
     }
 

@@ -41,9 +41,8 @@ class DataSyncService {
         return { success: false, reason: 'No data received from Sportsradar' };
       }
 
-      // Check if we have any data to sync
+      // Check if we have any data to sync (only ATP for now)
       const hasData = (liveData.atp_rankings && liveData.atp_rankings.length > 0) ||
-                     (liveData.wta_rankings && liveData.wta_rankings.length > 0) ||
                      (liveData.tournaments && liveData.tournaments.length > 0);
 
       if (!hasData) {
