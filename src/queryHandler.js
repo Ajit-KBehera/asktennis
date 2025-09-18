@@ -77,8 +77,32 @@ class TennisQueryHandler {
       
       // Execute the query
       console.log('Executing database query...');
-      const queryResult = await this.executeQuery(sqlQuery);
-      console.log('Database query result:', queryResult);
+      let queryResult;
+      try {
+        queryResult = await this.executeQuery(sqlQuery);
+        console.log('Database query result:', queryResult);
+      } catch (error) {
+        console.log('AI query failed, trying direct database query...');
+        queryResult = [];
+      }
+      
+      // If no data from AI query, try direct database query
+      if (!queryResult || queryResult.length === 0) {
+        console.log('No data from AI query, trying direct database query...');
+        const fallbackData = await this.queryDatabaseDirectly(question);
+        if (fallbackData && fallbackData.length > 0) {
+          console.log('Found data via direct query, generating simple answer...');
+          const simpleAnswer = this.generateSimpleAnswer(question, fallbackData);
+          return {
+            answer: simpleAnswer,
+            data: fallbackData,
+            queryType: queryAnalysis.type,
+            confidence: 0.8, // Lower confidence for fallback
+            dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
+            lastUpdated: dataSync.getSyncStatus().lastSync
+          };
+        }
+      }
       
       // Generate natural language response
       console.log('Generating AI answer...');
@@ -264,44 +288,39 @@ class TennisQueryHandler {
   }
 
   async executeQuery(sqlQuery) {
-    try {
-      // Clean the SQL query - remove markdown formatting
-      let cleanSQL = sqlQuery.trim();
-      
-      // Remove markdown code blocks
-      if (cleanSQL.startsWith('```sql')) {
-        cleanSQL = cleanSQL.replace(/^```sql\s*/, '').replace(/\s*```$/, '');
-      } else if (cleanSQL.startsWith('```')) {
-        cleanSQL = cleanSQL.replace(/^```\s*/, '').replace(/\s*```$/, '');
-      }
-      
-      // Remove any remaining markdown formatting
-      cleanSQL = cleanSQL.replace(/^```.*$/gm, '').trim();
-      
-      console.log('Executing SQL:', cleanSQL);
-      const result = await database.query(cleanSQL);
-      console.log('SQL query result:', result.rows);
-      return result.rows;
-    } catch (error) {
-      console.error('Query execution error:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        detail: error.detail
-      });
-      
-      // Return empty result in demo/error mode to avoid hardcoded player names
-      console.log('Returning empty result due to SQL error');
-      return [];
+    // Ensure database is connected
+    if (!database.pool) {
+      console.log('🔄 Connecting to database...');
+      await database.connect();
     }
+    
+    // Clean the SQL query - remove markdown formatting
+    let cleanSQL = sqlQuery.trim();
+    
+    // Remove markdown code blocks
+    if (cleanSQL.startsWith('```sql')) {
+      cleanSQL = cleanSQL.replace(/^```sql\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanSQL.startsWith('```')) {
+      cleanSQL = cleanSQL.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    
+    // Remove any remaining markdown formatting
+    cleanSQL = cleanSQL.replace(/^```.*$/gm, '').trim();
+    
+    console.log('Executing SQL:', cleanSQL);
+    const result = await database.query(cleanSQL);
+    console.log('SQL query result:', result.rows);
+    return result.rows;
   }
 
   async generateAnswer(question, data, analysis) {
     try {
       if (!data || data.length === 0) {
         // Try to get some basic data from database
+        console.log('No data from AI query, trying direct database query...');
         const fallbackData = await this.queryDatabaseDirectly(question);
         if (fallbackData && fallbackData.length > 0) {
+          console.log('Found data via direct query, generating simple answer...');
           return this.generateSimpleAnswer(question, fallbackData);
         }
         return "I don't have enough data to answer that question right now. The database might be empty or the query didn't match any records.";
@@ -420,7 +439,44 @@ class TennisQueryHandler {
    */
   async queryDatabaseDirectly(question) {
     try {
+      // Ensure database is connected
+      if (!database.pool) {
+        console.log('🔄 Connecting to database...');
+        await database.connect();
+      }
+      
       const lowerQuestion = question.toLowerCase();
+      
+      // Check for specific player queries
+      if (lowerQuestion.includes('jannik') || lowerQuestion.includes('sinner')) {
+        return await database.query(`
+          SELECT name, country, current_ranking, tour, birth_date, height, weight, playing_hand, turned_pro, career_prize_money
+          FROM players 
+          WHERE name ILIKE '%sinner%' OR name ILIKE '%jannik%'
+          ORDER BY current_ranking ASC
+          LIMIT 1
+        `);
+      }
+      
+      if (lowerQuestion.includes('alcaraz') || lowerQuestion.includes('carlos')) {
+        return await database.query(`
+          SELECT name, country, current_ranking, tour, birth_date, height, weight, playing_hand, turned_pro, career_prize_money
+          FROM players 
+          WHERE name ILIKE '%alcaraz%' OR name ILIKE '%carlos%'
+          ORDER BY current_ranking ASC
+          LIMIT 1
+        `);
+      }
+      
+      if (lowerQuestion.includes('djokovic') || lowerQuestion.includes('novak')) {
+        return await database.query(`
+          SELECT name, country, current_ranking, tour, birth_date, height, weight, playing_hand, turned_pro, career_prize_money
+          FROM players 
+          WHERE name ILIKE '%djokovic%' OR name ILIKE '%novak%'
+          ORDER BY current_ranking ASC
+          LIMIT 1
+        `);
+      }
       
       // Simple pattern matching for common queries
       if (lowerQuestion.includes('ranking') || lowerQuestion.includes('rank')) {
@@ -480,26 +536,36 @@ class TennisQueryHandler {
     }
 
     const lowerQuestion = question.toLowerCase();
+    const player = data[0];
+    
+    // Handle specific player queries
+    if (lowerQuestion.includes('jannik') || lowerQuestion.includes('sinner')) {
+      return `Jannik Sinner is an Italian professional tennis player currently ranked #${player.current_ranking} in the ATP tour. He's from ${player.country} and has earned $${player.career_prize_money ? player.career_prize_money.toLocaleString() : 'N/A'} in career prize money. He turned professional in ${player.turned_pro || 'N/A'} and plays with his ${player.playing_hand || 'right'} hand.`;
+    }
+    
+    if (lowerQuestion.includes('alcaraz') || lowerQuestion.includes('carlos')) {
+      return `Carlos Alcaraz is a Spanish professional tennis player currently ranked #${player.current_ranking} in the ATP tour. He's from ${player.country} and has earned $${player.career_prize_money ? player.career_prize_money.toLocaleString() : 'N/A'} in career prize money. He turned professional in ${player.turned_pro || 'N/A'} and plays with his ${player.playing_hand || 'right'} hand.`;
+    }
+    
+    if (lowerQuestion.includes('djokovic') || lowerQuestion.includes('novak')) {
+      return `Novak Djokovic is a Serbian professional tennis player currently ranked #${player.current_ranking} in the ATP tour. He's from ${player.country} and has earned $${player.career_prize_money ? player.career_prize_money.toLocaleString() : 'N/A'} in career prize money. He turned professional in ${player.turned_pro || 'N/A'} and plays with his ${player.playing_hand || 'right'} hand.`;
+    }
     
     if (lowerQuestion.includes('ranking') || lowerQuestion.includes('rank')) {
-      const topPlayer = data[0];
-      return `The current #${topPlayer.current_ranking} ranked player is ${topPlayer.name} from ${topPlayer.country} (${topPlayer.tour} tour).`;
+      return `The current #${player.current_ranking} ranked player is ${player.name} from ${player.country} (${player.tour} tour).`;
     }
     
     if (lowerQuestion.includes('most') || lowerQuestion.includes('highest')) {
       if (lowerQuestion.includes('ace')) {
-        const topPlayer = data[0];
-        return `${topPlayer.name} from ${topPlayer.country} has the most aces with ${topPlayer.total_aces} total aces.`;
+        return `${player.name} from ${player.country} has the most aces with ${player.total_aces} total aces.`;
       }
       
       if (lowerQuestion.includes('prize') || lowerQuestion.includes('money')) {
-        const topPlayer = data[0];
-        return `${topPlayer.name} from ${topPlayer.country} has earned the most prize money with $${topPlayer.career_prize_money.toLocaleString()}.`;
+        return `${player.name} from ${player.country} has earned the most prize money with $${player.career_prize_money.toLocaleString()}.`;
       }
     }
     
     // Default response
-    const player = data[0];
     return `Here's some tennis data: ${player.name} from ${player.country} is currently ranked #${player.current_ranking || 'N/A'} in the ${player.tour || 'ATP'} tour.`;
   }
 }
