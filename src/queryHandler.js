@@ -449,49 +449,53 @@ class TennisQueryHandler {
       
       // Check for specific player queries
       if (lowerQuestion.includes('jannik') || lowerQuestion.includes('sinner')) {
-        return await database.query(`
+        const result = await database.query(`
           SELECT name, country, current_ranking, tour, birth_date, height, weight, playing_hand, turned_pro, career_prize_money
           FROM players 
           WHERE name ILIKE '%sinner%' OR name ILIKE '%jannik%'
           ORDER BY current_ranking ASC
           LIMIT 1
         `);
+        return result.rows;
       }
       
       if (lowerQuestion.includes('alcaraz') || lowerQuestion.includes('carlos')) {
-        return await database.query(`
+        const result = await database.query(`
           SELECT name, country, current_ranking, tour, birth_date, height, weight, playing_hand, turned_pro, career_prize_money
           FROM players 
           WHERE name ILIKE '%alcaraz%' OR name ILIKE '%carlos%'
           ORDER BY current_ranking ASC
           LIMIT 1
         `);
+        return result.rows;
       }
       
       if (lowerQuestion.includes('djokovic') || lowerQuestion.includes('novak')) {
-        return await database.query(`
+        const result = await database.query(`
           SELECT name, country, current_ranking, tour, birth_date, height, weight, playing_hand, turned_pro, career_prize_money
           FROM players 
           WHERE name ILIKE '%djokovic%' OR name ILIKE '%novak%'
           ORDER BY current_ranking ASC
           LIMIT 1
         `);
+        return result.rows;
       }
       
       // Simple pattern matching for common queries
       if (lowerQuestion.includes('ranking') || lowerQuestion.includes('rank')) {
-        return await database.query(`
+        const result = await database.query(`
           SELECT name, country, current_ranking, tour 
           FROM players 
           WHERE current_ranking > 0 
           ORDER BY current_ranking 
           LIMIT 10
         `);
+        return result.rows;
       }
       
       if (lowerQuestion.includes('most') || lowerQuestion.includes('highest') || lowerQuestion.includes('best')) {
         if (lowerQuestion.includes('ace') || lowerQuestion.includes('aces')) {
-          return await database.query(`
+          const result = await database.query(`
             SELECT p.name, p.country, SUM(ms.aces) as total_aces
             FROM players p
             JOIN match_stats ms ON p.id = ms.player_id
@@ -499,27 +503,30 @@ class TennisQueryHandler {
             ORDER BY total_aces DESC
             LIMIT 5
           `);
+          return result.rows;
         }
         
         if (lowerQuestion.includes('prize') || lowerQuestion.includes('money')) {
-          return await database.query(`
+          const result = await database.query(`
             SELECT name, country, career_prize_money
             FROM players
             WHERE career_prize_money > 0
             ORDER BY career_prize_money DESC
             LIMIT 5
           `);
+          return result.rows;
         }
       }
       
       // Default: return top ranked players
-      return await database.query(`
+      const result = await database.query(`
         SELECT name, country, current_ranking, tour
         FROM players
         WHERE current_ranking > 0
         ORDER BY current_ranking
         LIMIT 5
       `);
+      return result.rows;
       
     } catch (error) {
       console.error('Direct database query failed:', error.message);
