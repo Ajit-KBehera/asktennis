@@ -34,6 +34,8 @@ function App() {
       const response = await axios.post(`${API_BASE_URL}/api/query`, {
         question: question.trim(),
         userId: 'user-123' // In a real app, this would come from authentication
+      }, {
+        timeout: 10000 // 10 second timeout
       });
 
       const result: QueryResult = response.data;
@@ -41,6 +43,12 @@ function App() {
       
     } catch (error) {
       console.error('Query error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
       console.log('Falling back to mock response');
       
       // Demo mode - provide mock responses when backend is not available
