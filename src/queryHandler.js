@@ -1,5 +1,6 @@
 const Groq = require('groq-sdk');
 const database = require('./database');
+const dataSync = require('./dataSync');
 
 class TennisQueryHandler {
   constructor() {
@@ -43,7 +44,9 @@ class TennisQueryHandler {
           answer: "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.",
           data: null,
           queryType: 'fallback',
-          confidence: 0.5
+          confidence: 0.5,
+          dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
+          lastUpdated: dataSync.getSyncStatus().lastSync
         };
       }
       
@@ -73,7 +76,9 @@ class TennisQueryHandler {
         answer,
         data: queryResult,
         queryType: queryAnalysis.type,
-        confidence: queryAnalysis.confidence
+        confidence: queryAnalysis.confidence,
+        dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
+        lastUpdated: dataSync.getSyncStatus().lastSync
       };
       
     } catch (error) {
@@ -84,7 +89,9 @@ class TennisQueryHandler {
         answer: "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.",
         data: null,
         queryType: 'error',
-        confidence: 0
+        confidence: 0,
+        dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
+        lastUpdated: dataSync.getSyncStatus().lastSync
       };
     }
     };

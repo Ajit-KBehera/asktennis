@@ -51,7 +51,7 @@ class Database {
       await client.query(`
         CREATE TABLE IF NOT EXISTS players (
           id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
+          name VARCHAR(255) NOT NULL UNIQUE,
           country VARCHAR(3),
           birth_date DATE,
           height INTEGER,
@@ -60,6 +60,7 @@ class Database {
           turned_pro INTEGER,
           current_ranking INTEGER,
           career_prize_money BIGINT,
+          tour VARCHAR(10) DEFAULT 'ATP',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -67,7 +68,7 @@ class Database {
 
       await client.query(`
         CREATE TABLE IF NOT EXISTS tournaments (
-          id SERIAL PRIMARY KEY,
+          id VARCHAR(50) PRIMARY KEY,
           name VARCHAR(255) NOT NULL,
           type VARCHAR(50),
           surface VARCHAR(20),
@@ -76,6 +77,8 @@ class Database {
           start_date DATE,
           end_date DATE,
           prize_money BIGINT,
+          status VARCHAR(20),
+          current_round VARCHAR(50),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -84,7 +87,7 @@ class Database {
       await client.query(`
         CREATE TABLE IF NOT EXISTS matches (
           id SERIAL PRIMARY KEY,
-          tournament_id INTEGER REFERENCES tournaments(id),
+          tournament_id VARCHAR(50) REFERENCES tournaments(id),
           player1_id INTEGER REFERENCES players(id),
           player2_id INTEGER REFERENCES players(id),
           winner_id INTEGER REFERENCES players(id),
@@ -93,6 +96,7 @@ class Database {
           match_date DATE,
           round VARCHAR(50),
           surface VARCHAR(20),
+          status VARCHAR(20),
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -121,8 +125,10 @@ class Database {
           player_id INTEGER REFERENCES players(id),
           ranking INTEGER NOT NULL,
           points INTEGER,
+          tour VARCHAR(10) DEFAULT 'ATP',
           ranking_date DATE NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(player_id, ranking_date)
         );
       `);
 
@@ -136,6 +142,9 @@ class Database {
         CREATE INDEX IF NOT EXISTS idx_rankings_player_date ON rankings(player_id, ranking_date);
       `);
 
+      // Run migrations for existing installations
+      await this.runMigrations(client);
+
       console.log('✅ Database schema initialized');
       
     } catch (error) {
@@ -143,6 +152,58 @@ class Database {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  async runMigrations(client) {
+    try {
+      console.log('🔄 Running database migrations...');
+
+      // Add tour column to players if it doesn't exist
+      await client.query(`
+        ALTER TABLE players 
+        ADD COLUMN IF NOT EXISTS tour VARCHAR(10) DEFAULT 'ATP';
+      `);
+
+      // Add unique constraint to players name if it doesn't exist
+      await client.query(`
+        ALTER TABLE players 
+        ADD CONSTRAINT IF NOT EXISTS players_name_unique UNIQUE (name);
+      `);
+
+      // Add tour column to rankings if it doesn't exist
+      await client.query(`
+        ALTER TABLE rankings 
+        ADD COLUMN IF NOT EXISTS tour VARCHAR(10) DEFAULT 'ATP';
+      `);
+
+      // Add unique constraint to rankings if it doesn't exist
+      await client.query(`
+        ALTER TABLE rankings 
+        ADD CONSTRAINT IF NOT EXISTS rankings_player_date_unique UNIQUE (player_id, ranking_date);
+      `);
+
+      // Add status and current_round columns to tournaments if they don't exist
+      await client.query(`
+        ALTER TABLE tournaments 
+        ADD COLUMN IF NOT EXISTS status VARCHAR(20);
+      `);
+
+      await client.query(`
+        ALTER TABLE tournaments 
+        ADD COLUMN IF NOT EXISTS current_round VARCHAR(50);
+      `);
+
+      // Add status column to matches if it doesn't exist
+      await client.query(`
+        ALTER TABLE matches 
+        ADD COLUMN IF NOT EXISTS status VARCHAR(20);
+      `);
+
+      console.log('✅ Database migrations completed');
+    } catch (error) {
+      console.error('❌ Migration failed:', error);
+      // Don't throw error for migrations - they might fail if columns already exist
     }
   }
 

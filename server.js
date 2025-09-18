@@ -10,6 +10,7 @@ require('dotenv').config();
 const tennisQueryHandler = require('./src/queryHandler');
 const database = require('./src/database');
 const cache = require('./src/cache');
+const dataSync = require('./src/dataSync');
 
 const app = express();
 const server = createServer(app);
@@ -129,6 +130,64 @@ app.get('/api/test', (req, res) => {
     timestamp: new Date().toISOString(),
     hasGroqKey: !!process.env.GROQ_API_KEY
   });
+});
+
+// Data sync endpoints
+app.get('/api/sync/status', (req, res) => {
+  try {
+    const status = dataSync.getSyncStatus();
+    res.json({
+      success: true,
+      ...status
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.post('/api/sync/force', async (req, res) => {
+  try {
+    console.log('🔄 Force sync requested via API');
+    const result = await dataSync.forceSync();
+    res.json(result);
+  } catch (error) {
+    console.error('Force sync failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+app.get('/api/sync/test', async (req, res) => {
+  try {
+    const sportsradar = require('./src/sportsradar');
+    if (!sportsradar.isConfigured()) {
+      return res.json({
+        success: false,
+        error: 'Sportsradar API key not configured',
+        configured: false
+      });
+    }
+
+    // Test API connection
+    const testData = await sportsradar.getATPRankings();
+    res.json({
+      success: true,
+      configured: true,
+      testData: testData ? testData.slice(0, 3) : null, // Return first 3 rankings as test
+      message: 'Sportsradar API connection successful'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      configured: true
+    });
+  }
 });
 
 // Debug endpoint to check build files
@@ -272,6 +331,14 @@ async function initialize() {
     await database.connect();
     await cache.connect();
     console.log('Database and cache connections established');
+    
+    // Start auto-sync if Sportsradar is configured
+    if (dataSync.isSportsradarAvailable()) {
+      console.log('🔄 Starting automatic data synchronization...');
+      dataSync.startAutoSync();
+    } else {
+      console.log('⚠️  Sportsradar not configured - using static data only');
+    }
   } catch (error) {
     console.error('Failed to initialize connections:', error);
     process.exit(1);
