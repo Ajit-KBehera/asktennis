@@ -20,6 +20,9 @@ const io = new Server(server, {
   }
 });
 
+// Trust proxy for Railway deployment
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 app.use(cors());
