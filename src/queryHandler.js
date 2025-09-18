@@ -186,9 +186,11 @@ class TennisQueryHandler {
         - match_stats (id, match_id, player_id, aces, double_faults, first_serve_percentage, first_serve_points_won, second_serve_points_won, break_points_saved, break_points_converted, total_points_won)
         - rankings (id, player_id, ranking, points, ranking_date)
         
-        Return ONLY the SQL query, no explanations. Use proper JOINs and aggregations as needed.
+        Return ONLY the SQL query, no explanations, no markdown formatting, no code blocks.
+        Use proper JOINs and aggregations as needed.
         If the question asks for "most" or "highest", use ORDER BY and LIMIT.
         If asking about specific players, use WHERE clauses with player names.
+        Do NOT wrap the query in ```sql or any other formatting.
       `;
 
       const response = await this.groq.chat.completions.create({
@@ -224,8 +226,21 @@ class TennisQueryHandler {
 
   async executeQuery(sqlQuery) {
     try {
-      console.log('Executing SQL:', sqlQuery);
-      const result = await database.query(sqlQuery);
+      // Clean the SQL query - remove markdown formatting
+      let cleanSQL = sqlQuery.trim();
+      
+      // Remove markdown code blocks
+      if (cleanSQL.startsWith('```sql')) {
+        cleanSQL = cleanSQL.replace(/^```sql\s*/, '').replace(/\s*```$/, '');
+      } else if (cleanSQL.startsWith('```')) {
+        cleanSQL = cleanSQL.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      // Remove any remaining markdown formatting
+      cleanSQL = cleanSQL.replace(/^```.*$/gm, '').trim();
+      
+      console.log('Executing SQL:', cleanSQL);
+      const result = await database.query(cleanSQL);
       console.log('SQL query result:', result.rows);
       return result.rows;
     } catch (error) {
