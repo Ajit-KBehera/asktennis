@@ -38,7 +38,12 @@ function App() {
         timeout: 5000 // 5 second timeout
       });
 
+      console.log('✅ API call successful!');
+      console.log('API response received:', response);
+      console.log('Response data:', response.data);
+      
       const result: QueryResult = response.data;
+      console.log('Processed result:', result);
       setQueryHistory(prev => [result, ...prev]);
       
     } catch (error: any) {
