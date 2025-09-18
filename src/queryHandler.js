@@ -36,10 +36,23 @@ class TennisQueryHandler {
       });
       
       if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'your_groq_api_key_here') {
-        console.log('❌ Groq API key not configured, using fallback mode');
+        console.log('❌ Groq API key not configured, trying database-only mode');
         console.log('API key value:', process.env.GROQ_API_KEY);
-        // Get some sample data and provide a helpful message
-        const sampleData = this.getSampleData();
+        
+        // Try to answer with database data only (no AI)
+        const dbResult = await this.queryDatabaseDirectly(question);
+        if (dbResult && dbResult.length > 0) {
+          return {
+            answer: this.generateSimpleAnswer(question, dbResult),
+            data: dbResult,
+            queryType: 'database_only',
+            confidence: 0.7,
+            dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
+            lastUpdated: dataSync.getSyncStatus().lastSync
+          };
+        }
+        
+        // If no database data, use fallback
         return {
           answer: "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.",
           data: null,
@@ -286,7 +299,12 @@ class TennisQueryHandler {
   async generateAnswer(question, data, analysis) {
     try {
       if (!data || data.length === 0) {
-        return "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.";
+        // Try to get some basic data from database
+        const fallbackData = await this.queryDatabaseDirectly(question);
+        if (fallbackData && fallbackData.length > 0) {
+          return this.generateSimpleAnswer(question, fallbackData);
+        }
+        return "I don't have enough data to answer that question right now. The database might be empty or the query didn't match any records.";
       }
 
       const prompt = `
@@ -395,6 +413,94 @@ class TennisQueryHandler {
     }
     
     return '';
+  }
+
+  /**
+   * Query database directly without AI (for when Groq API is not available)
+   */
+  async queryDatabaseDirectly(question) {
+    try {
+      const lowerQuestion = question.toLowerCase();
+      
+      // Simple pattern matching for common queries
+      if (lowerQuestion.includes('ranking') || lowerQuestion.includes('rank')) {
+        return await database.query(`
+          SELECT name, country, current_ranking, tour 
+          FROM players 
+          WHERE current_ranking > 0 
+          ORDER BY current_ranking 
+          LIMIT 10
+        `);
+      }
+      
+      if (lowerQuestion.includes('most') || lowerQuestion.includes('highest') || lowerQuestion.includes('best')) {
+        if (lowerQuestion.includes('ace') || lowerQuestion.includes('aces')) {
+          return await database.query(`
+            SELECT p.name, p.country, SUM(ms.aces) as total_aces
+            FROM players p
+            JOIN match_stats ms ON p.id = ms.player_id
+            GROUP BY p.id, p.name, p.country
+            ORDER BY total_aces DESC
+            LIMIT 5
+          `);
+        }
+        
+        if (lowerQuestion.includes('prize') || lowerQuestion.includes('money')) {
+          return await database.query(`
+            SELECT name, country, career_prize_money
+            FROM players
+            WHERE career_prize_money > 0
+            ORDER BY career_prize_money DESC
+            LIMIT 5
+          `);
+        }
+      }
+      
+      // Default: return top ranked players
+      return await database.query(`
+        SELECT name, country, current_ranking, tour
+        FROM players
+        WHERE current_ranking > 0
+        ORDER BY current_ranking
+        LIMIT 5
+      `);
+      
+    } catch (error) {
+      console.error('Direct database query failed:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Generate simple answer without AI
+   */
+  generateSimpleAnswer(question, data) {
+    if (!data || data.length === 0) {
+      return "I don't have enough data to answer that question right now.";
+    }
+
+    const lowerQuestion = question.toLowerCase();
+    
+    if (lowerQuestion.includes('ranking') || lowerQuestion.includes('rank')) {
+      const topPlayer = data[0];
+      return `The current #${topPlayer.current_ranking} ranked player is ${topPlayer.name} from ${topPlayer.country} (${topPlayer.tour} tour).`;
+    }
+    
+    if (lowerQuestion.includes('most') || lowerQuestion.includes('highest')) {
+      if (lowerQuestion.includes('ace')) {
+        const topPlayer = data[0];
+        return `${topPlayer.name} from ${topPlayer.country} has the most aces with ${topPlayer.total_aces} total aces.`;
+      }
+      
+      if (lowerQuestion.includes('prize') || lowerQuestion.includes('money')) {
+        const topPlayer = data[0];
+        return `${topPlayer.name} from ${topPlayer.country} has earned the most prize money with $${topPlayer.career_prize_money.toLocaleString()}.`;
+      }
+    }
+    
+    // Default response
+    const player = data[0];
+    return `Here's some tennis data: ${player.name} from ${player.country} is currently ranked #${player.current_ranking || 'N/A'} in the ${player.tour || 'ATP'} tour.`;
   }
 }
 
