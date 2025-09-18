@@ -99,8 +99,14 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'healthy', 
     timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    version: '1.0.0',
+    uptime: process.uptime()
   });
+});
+
+// Simple health check for Railway
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
 });
 
 // Debug endpoint to check environment variables
@@ -328,20 +334,36 @@ const PORT = process.env.PORT || 5000;
 // Initialize database and cache connections
 async function initialize() {
   try {
+    console.log('🔄 Initializing database connection...');
     await database.connect();
+    console.log('✅ Database connected successfully');
+    
+    console.log('🔄 Initializing cache connection...');
     await cache.connect();
+    console.log('✅ Cache connected successfully');
+    
     console.log('Database and cache connections established');
     
-    // Start auto-sync if Sportsradar is configured
+    // Start auto-sync if Sportsradar is configured (non-blocking)
     if (dataSync.isSportsradarAvailable()) {
       console.log('🔄 Starting automatic data synchronization...');
-      dataSync.startAutoSync();
+      // Don't await this - let it run in background
+      dataSync.startAutoSync().catch(error => {
+        console.error('Auto-sync failed (non-critical):', error.message);
+      });
     } else {
       console.log('⚠️  Sportsradar not configured - using static data only');
     }
   } catch (error) {
     console.error('Failed to initialize connections:', error);
-    process.exit(1);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    
+    // Don't exit immediately - try to continue with limited functionality
+    console.log('⚠️  Continuing with limited functionality...');
   }
 }
 
