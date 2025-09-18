@@ -30,11 +30,13 @@ class TennisQueryHandler {
       console.log('API Key check:', {
         hasKey: !!process.env.GROQ_API_KEY,
         keyValue: process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.substring(0, 10) + '...' : 'undefined',
-        isPlaceholder: process.env.GROQ_API_KEY === 'your_groq_api_key_here'
+        isPlaceholder: process.env.GROQ_API_KEY === 'your_groq_api_key_here',
+        fullKey: process.env.GROQ_API_KEY
       });
       
       if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'your_groq_api_key_here') {
-        console.log('Groq API key not configured, using fallback mode');
+        console.log('❌ Groq API key not configured, using fallback mode');
+        console.log('API key value:', process.env.GROQ_API_KEY);
         // Get some sample data and provide a helpful message
         const sampleData = this.getSampleData();
         return {
