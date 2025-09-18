@@ -303,23 +303,52 @@ app.use((err, req, res, next) => {
 
 // Serve static files from React build in production (AFTER API routes)
 if (process.env.NODE_ENV === 'production') {
-  console.log('Serving static files from:', path.join(__dirname, 'client/build'));
+  const buildPath = path.join(__dirname, 'client/build');
+  const indexPath = path.join(buildPath, 'index.html');
   
-  // Serve static files with explicit path handling
-  app.use('/static', express.static(path.join(__dirname, 'client/build/static')));
-  app.use(express.static(path.join(__dirname, 'client/build')));
-  
-  // Debug middleware to log requests
-  app.use((req, res, next) => {
-    console.log('Request:', req.method, req.url);
-    next();
-  });
-  
-  // Catch-all handler: send back React's index.html file for SPA routing
-  app.get('*', (req, res) => {
-    console.log('Catch-all route triggered for:', req.url);
-    res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
-  });
+  // Check if build files exist
+  const fs = require('fs');
+  if (fs.existsSync(indexPath)) {
+    console.log('Serving static files from:', buildPath);
+    
+    // Serve static files with explicit path handling
+    app.use('/static', express.static(path.join(buildPath, 'static')));
+    app.use(express.static(buildPath));
+    
+    // Catch-all handler: send back React's index.html file for SPA routing
+    app.get('*', (req, res) => {
+      console.log('Catch-all route triggered for:', req.url);
+      res.sendFile(indexPath);
+    });
+  } else {
+    console.log('⚠️  Build files not found, serving API-only mode');
+    
+    // Fallback: serve a simple HTML page
+    app.get('*', (req, res) => {
+      res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>AskTennis API</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .container { max-width: 600px; margin: 0 auto; }
+            .status { color: #28a745; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h1>🎾 AskTennis API</h1>
+            <p class="status">✅ API is running successfully!</p>
+            <p>Client build files are not available. This is normal during deployment.</p>
+            <p>API endpoints are available at <code>/api/*</code></p>
+            <p>Health check: <a href="/health">/health</a></p>
+          </div>
+        </body>
+        </html>
+      `);
+    });
+  }
 } else {
   // 404 handler for development
   app.use('*', (req, res) => {
