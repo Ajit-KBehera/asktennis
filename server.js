@@ -363,14 +363,8 @@ const PORT = process.env.PORT || 5000;
 // Initialize database and cache connections
 async function initialize() {
   try {
-    console.log('🔄 Initializing database connection...');
     await database.connect();
-    console.log('✅ Database connected successfully');
-    
-    console.log('🔄 Initializing cache connection...');
     await cache.connect();
-    console.log('✅ Cache connected successfully');
-    
     console.log('Database and cache connections established');
     
     // Start auto-sync if Sportsradar is configured (non-blocking)
@@ -385,13 +379,7 @@ async function initialize() {
     }
   } catch (error) {
     console.error('Failed to initialize connections:', error);
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      stack: error.stack
-    });
-    
-    // Don't exit immediately - try to continue with limited functionality
+    // Don't exit - continue with limited functionality
     console.log('⚠️  Continuing with limited functionality...');
   }
 }
