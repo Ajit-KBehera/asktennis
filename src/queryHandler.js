@@ -190,7 +190,7 @@ class TennisQueryHandler {
         Use proper JOINs and aggregations as needed.
         If the question asks for "most" or "highest", use ORDER BY and LIMIT.
         If asking about specific players, use WHERE clauses with player names.
-        Do NOT wrap the query in ```sql or any other formatting.
+        Do NOT wrap the query in backticks or any other formatting.
       `;
 
       const response = await this.groq.chat.completions.create({
