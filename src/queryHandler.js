@@ -101,7 +101,7 @@ class TennisQueryHandler {
         
         Question: "${question}"
         
-        Please respond with a JSON object containing:
+        Return ONLY a valid JSON object with this exact structure:
         {
           "type": "playerStats|headToHead|tournamentRecords|performanceMetrics|historicalData|surfaceAnalysis|rankingQueries|general",
           "entities": {
@@ -115,6 +115,7 @@ class TennisQueryHandler {
           "intent": "brief description of what the user wants to know"
         }
         
+        Do NOT include any text before or after the JSON. Return ONLY the JSON object.
         Focus on tennis-specific entities and be precise about what data is being requested.
       `;
 
@@ -134,7 +135,23 @@ class TennisQueryHandler {
         max_tokens: 500
       });
 
-      const analysis = JSON.parse(response.choices[0].message.content);
+      const responseText = response.choices[0].message.content.trim();
+      console.log('Raw AI response:', responseText);
+      
+      // Try to extract JSON from the response
+      let analysis;
+      try {
+        analysis = JSON.parse(responseText);
+      } catch (parseError) {
+        console.log('JSON parse failed, trying to extract JSON from response...');
+        // Try to find JSON in the response
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysis = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error(`Could not parse JSON from response: ${responseText.substring(0, 100)}...`);
+        }
+      }
       
       // Validate and enhance analysis with pattern matching
       for (const [type, pattern] of Object.entries(this.queryPatterns)) {
@@ -190,6 +207,8 @@ class TennisQueryHandler {
         Use proper JOINs and aggregations as needed.
         If the question asks for "most" or "highest", use ORDER BY and LIMIT.
         If asking about specific players, use WHERE clauses with player names.
+        For Grand Slam titles, count matches won in Grand Slam tournaments (type = 'Grand Slam').
+        For tournament wins, join players with matches where player is the winner.
         Do NOT wrap the query in backticks or any other formatting.
       `;
 
