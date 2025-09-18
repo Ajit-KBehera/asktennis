@@ -53,18 +53,25 @@ app.post('/api/query', async (req, res) => {
       });
     }
 
-    // Check cache first
-    const cacheKey = `query:${question.toLowerCase().trim()}`;
-    const cachedResult = await cache.get(cacheKey);
+    // Check cache first (but skip for ranking queries to ensure fresh data)
+    const lowerQuestion = question.toLowerCase().trim();
+    const isRankingQuery = lowerQuestion.includes('ranking') || lowerQuestion.includes('rank') || 
+                          lowerQuestion.includes('#1') || lowerQuestion.includes('current');
     
-    if (cachedResult) {
-      return res.json({
-        question,
-        answer: cachedResult.answer,
-        data: cachedResult.data,
-        cached: true,
-        timestamp: new Date().toISOString()
-      });
+    let cachedResult = null;
+    if (!isRankingQuery) {
+      const cacheKey = `query:${lowerQuestion}`;
+      cachedResult = await cache.get(cacheKey);
+      
+      if (cachedResult) {
+        return res.json({
+          question,
+          answer: cachedResult.answer,
+          data: cachedResult.data,
+          cached: true,
+          timestamp: new Date().toISOString()
+        });
+      }
     }
 
     // Process the query
@@ -102,6 +109,41 @@ app.get('/api/health', (req, res) => {
     version: '1.0.0',
     uptime: process.uptime()
   });
+});
+
+// Cache management endpoints
+app.post('/api/cache/clear', async (req, res) => {
+  try {
+    await cache.flush();
+    res.json({ 
+      success: true, 
+      message: 'Cache cleared successfully',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to clear cache',
+      message: error.message
+    });
+  }
+});
+
+app.get('/api/cache/stats', async (req, res) => {
+  try {
+    const stats = await cache.getStats();
+    res.json({ 
+      success: true, 
+      stats,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to get cache stats',
+      message: error.message
+    });
+  }
 });
 
 // Simple health check for Railway
