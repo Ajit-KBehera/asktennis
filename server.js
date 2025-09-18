@@ -136,17 +136,22 @@ app.get('/api/debug-build', (req, res) => {
   const fs = require('fs');
   const buildPath = path.join(__dirname, 'client/build');
   const indexPath = path.join(buildPath, 'index.html');
+  const staticPath = path.join(buildPath, 'static');
   
   try {
     const buildExists = fs.existsSync(buildPath);
     const indexExists = fs.existsSync(indexPath);
+    const staticExists = fs.existsSync(staticPath);
     const buildContents = buildExists ? fs.readdirSync(buildPath) : [];
+    const staticContents = staticExists ? fs.readdirSync(staticPath) : [];
     
     res.json({
       buildPath,
       buildExists,
       indexExists,
+      staticExists,
       buildContents,
+      staticContents,
       nodeEnv: process.env.NODE_ENV
     });
   } catch (error) {
@@ -155,6 +160,23 @@ app.get('/api/debug-build', (req, res) => {
       buildPath,
       nodeEnv: process.env.NODE_ENV
     });
+  }
+});
+
+// Test endpoint to serve JS file directly
+app.get('/api/test-js', (req, res) => {
+  const fs = require('fs');
+  const jsPath = path.join(__dirname, 'client/build/static/js/main.11060174.js');
+  
+  try {
+    if (fs.existsSync(jsPath)) {
+      res.setHeader('Content-Type', 'application/javascript');
+      res.send(fs.readFileSync(jsPath, 'utf8'));
+    } else {
+      res.status(404).json({ error: 'JS file not found', path: jsPath });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message, path: jsPath });
   }
 });
 
@@ -217,10 +239,20 @@ app.use((err, req, res, next) => {
 // Serve static files from React build in production (AFTER API routes)
 if (process.env.NODE_ENV === 'production') {
   console.log('Serving static files from:', path.join(__dirname, 'client/build'));
+  
+  // Serve static files with explicit path handling
+  app.use('/static', express.static(path.join(__dirname, 'client/build/static')));
   app.use(express.static(path.join(__dirname, 'client/build')));
+  
+  // Debug middleware to log requests
+  app.use((req, res, next) => {
+    console.log('Request:', req.method, req.url);
+    next();
+  });
   
   // Catch-all handler: send back React's index.html file for SPA routing
   app.get('*', (req, res) => {
+    console.log('Catch-all route triggered for:', req.url);
     res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
   });
 } else {
