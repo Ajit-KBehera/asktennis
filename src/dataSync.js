@@ -203,23 +203,34 @@ class DataSyncService {
    * Upsert player (insert or update)
    */
   async upsertPlayer(client, playerData) {
-    const query = `
-      INSERT INTO players (name, country, current_ranking, tour, updated_at)
-      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-      ON CONFLICT (name) 
-      DO UPDATE SET 
-        country = EXCLUDED.country,
-        current_ranking = EXCLUDED.current_ranking,
-        tour = EXCLUDED.tour,
-        updated_at = CURRENT_TIMESTAMP
+    // First try to update existing player
+    const updateQuery = `
+      UPDATE players 
+      SET country = $2, current_ranking = $3, tour = $4, updated_at = CURRENT_TIMESTAMP
+      WHERE name = $1
     `;
-
-    await client.query(query, [
+    
+    const updateResult = await client.query(updateQuery, [
       playerData.name,
       playerData.country,
       playerData.current_ranking,
       playerData.tour || 'ATP'
     ]);
+
+    // If no rows were updated, insert new player
+    if (updateResult.rowCount === 0) {
+      const insertQuery = `
+        INSERT INTO players (name, country, current_ranking, tour, updated_at)
+        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+      `;
+
+      await client.query(insertQuery, [
+        playerData.name,
+        playerData.country,
+        playerData.current_ranking,
+        playerData.tour || 'ATP'
+      ]);
+    }
   }
 
   /**
@@ -239,48 +250,52 @@ class DataSyncService {
 
     const playerId = playerResult.rows[0].id;
 
-    const query = `
-      INSERT INTO rankings (player_id, ranking, points, tour, ranking_date, created_at)
-      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
-      ON CONFLICT (player_id, ranking_date) 
-      DO UPDATE SET 
-        ranking = EXCLUDED.ranking,
-        points = EXCLUDED.points,
-        tour = EXCLUDED.tour
+    // First try to update existing ranking
+    const updateQuery = `
+      UPDATE rankings 
+      SET ranking = $2, points = $3, tour = $4
+      WHERE player_id = $1 AND ranking_date = $5
     `;
-
-    await client.query(query, [
+    
+    const updateResult = await client.query(updateQuery, [
       playerId,
       rankingData.ranking,
       rankingData.points,
       rankingData.tour,
       rankingData.ranking_date
     ]);
+
+    // If no rows were updated, insert new ranking
+    if (updateResult.rowCount === 0) {
+      const insertQuery = `
+        INSERT INTO rankings (player_id, ranking, points, tour, ranking_date, created_at)
+        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+      `;
+
+      await client.query(insertQuery, [
+        playerId,
+        rankingData.ranking,
+        rankingData.points,
+        rankingData.tour,
+        rankingData.ranking_date
+      ]);
+    }
   }
 
   /**
    * Upsert tournament (insert or update)
    */
   async upsertTournament(client, tournamentData) {
-    const query = `
-      INSERT INTO tournaments (id, name, type, surface, level, location, start_date, end_date, prize_money, status, current_round, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
-      ON CONFLICT (id) 
-      DO UPDATE SET 
-        name = EXCLUDED.name,
-        type = EXCLUDED.type,
-        surface = EXCLUDED.surface,
-        level = EXCLUDED.level,
-        location = EXCLUDED.location,
-        start_date = EXCLUDED.start_date,
-        end_date = EXCLUDED.end_date,
-        prize_money = EXCLUDED.prize_money,
-        status = EXCLUDED.status,
-        current_round = EXCLUDED.current_round,
-        updated_at = CURRENT_TIMESTAMP
+    // First try to update existing tournament
+    const updateQuery = `
+      UPDATE tournaments 
+      SET name = $2, type = $3, surface = $4, level = $5, location = $6, 
+          start_date = $7, end_date = $8, prize_money = $9, status = $10, 
+          current_round = $11, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
     `;
-
-    await client.query(query, [
+    
+    const updateResult = await client.query(updateQuery, [
       tournamentData.id,
       tournamentData.name,
       tournamentData.type,
@@ -293,6 +308,28 @@ class DataSyncService {
       tournamentData.status,
       tournamentData.current_round
     ]);
+
+    // If no rows were updated, insert new tournament
+    if (updateResult.rowCount === 0) {
+      const insertQuery = `
+        INSERT INTO tournaments (id, name, type, surface, level, location, start_date, end_date, prize_money, status, current_round, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+      `;
+
+      await client.query(insertQuery, [
+        tournamentData.id,
+        tournamentData.name,
+        tournamentData.type,
+        tournamentData.surface,
+        tournamentData.level,
+        tournamentData.location,
+        tournamentData.start_date,
+        tournamentData.end_date,
+        tournamentData.prize_money,
+        tournamentData.status,
+        tournamentData.current_round
+      ]);
+    }
   }
 
   /**

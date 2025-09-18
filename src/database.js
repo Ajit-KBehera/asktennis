@@ -166,10 +166,16 @@ class Database {
       `);
 
       // Add unique constraint to players name if it doesn't exist
-      await client.query(`
-        ALTER TABLE players 
-        ADD CONSTRAINT IF NOT EXISTS players_name_unique UNIQUE (name);
-      `);
+      try {
+        await client.query(`
+          ALTER TABLE players 
+          ADD CONSTRAINT players_name_unique UNIQUE (name);
+        `);
+      } catch (error) {
+        if (error.code !== '42710') { // 42710 = duplicate_object
+          console.log('Players name constraint already exists or error:', error.message);
+        }
+      }
 
       // Add tour column to rankings if it doesn't exist
       await client.query(`
@@ -178,10 +184,16 @@ class Database {
       `);
 
       // Add unique constraint to rankings if it doesn't exist
-      await client.query(`
-        ALTER TABLE rankings 
-        ADD CONSTRAINT IF NOT EXISTS rankings_player_date_unique UNIQUE (player_id, ranking_date);
-      `);
+      try {
+        await client.query(`
+          ALTER TABLE rankings 
+          ADD CONSTRAINT rankings_player_date_unique UNIQUE (player_id, ranking_date);
+        `);
+      } catch (error) {
+        if (error.code !== '42710') { // 42710 = duplicate_object
+          console.log('Rankings constraint already exists or error:', error.message);
+        }
+      }
 
       // Add status and current_round columns to tournaments if they don't exist
       await client.query(`
