@@ -19,44 +19,67 @@ class SportsradarAPI {
   }
 
   /**
-   * Make HTTP request to Sportsradar API
+   * Make HTTP request to Sportsradar API with retry logic
    */
-  async makeRequest(endpoint, params = {}) {
+  async makeRequest(endpoint, params = {}, retries = 3) {
     if (!this.isConfigured()) {
       throw new Error('Sportsradar API key not configured');
     }
 
-    try {
-      const url = `${this.baseURL}${endpoint}`;
-      const config = {
-        params: {
-          api_key: this.apiKey,
-          ...params
-        },
-        timeout: this.timeout,
-        headers: {
-          'User-Agent': 'AskTennis/1.0.0'
-        }
-      };
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const url = `${this.baseURL}${endpoint}`;
+        const config = {
+          params: {
+            api_key: this.apiKey,
+            ...params
+          },
+          timeout: this.timeout,
+          headers: {
+            'User-Agent': 'AskTennis/1.0.0'
+          }
+        };
 
-      console.log(`🌐 Fetching from Sportsradar: ${endpoint}`);
-      const response = await axios.get(url, config);
-      
-      if (response.status === 200) {
-        console.log(`✅ Successfully fetched data from ${endpoint}`);
-        return response.data;
-      } else {
-        throw new Error(`API request failed with status: ${response.status}`);
+        console.log(`🌐 Fetching from Sportsradar: ${endpoint} (attempt ${attempt}/${retries})`);
+        const response = await axios.get(url, config);
+        
+        if (response.status === 200) {
+          console.log(`✅ Successfully fetched data from ${endpoint}`);
+          return response.data;
+        } else {
+          throw new Error(`API request failed with status: ${response.status}`);
+        }
+      } catch (error) {
+        console.error(`❌ Sportsradar API error for ${endpoint} (attempt ${attempt}/${retries}):`, error.message);
+        
+        if (error.response) {
+          console.error('Response status:', error.response.status);
+          console.error('Response data:', error.response.data);
+          
+          // Handle rate limiting
+          if (error.response.status === 429) {
+            const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+            console.log(`⏳ Rate limited, waiting ${delay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          
+          // Don't retry on 404 or other client errors
+          if (error.response.status >= 400 && error.response.status < 500) {
+            throw error;
+          }
+        }
+        
+        // If this is the last attempt, throw the error
+        if (attempt === retries) {
+          throw error;
+        }
+        
+        // Wait before retrying
+        const delay = Math.pow(2, attempt) * 1000;
+        console.log(`⏳ Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-    } catch (error) {
-      console.error(`❌ Sportsradar API error for ${endpoint}:`, error.message);
-      
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
-      }
-      
-      throw error;
     }
   }
 
@@ -78,11 +101,13 @@ class SportsradarAPI {
    */
   async getWTARankings() {
     try {
+      // Add delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const data = await this.makeRequest('/rankings.json', { type: 'wta' });
       return this.processRankings(data, 'WTA');
     } catch (error) {
       console.error('Failed to fetch WTA rankings:', error.message);
-      return null;
+      return [];
     }
   }
 
@@ -91,11 +116,30 @@ class SportsradarAPI {
    */
   async getCurrentTournaments() {
     try {
-      const data = await this.makeRequest('/tournaments.json');
-      return this.processTournaments(data);
+      // Try different tournament endpoints
+      const endpoints = [
+        '/tournaments.json',
+        '/tournaments/current.json',
+        '/tournaments/schedule.json'
+      ];
+      
+      for (const endpoint of endpoints) {
+        try {
+          const data = await this.makeRequest(endpoint);
+          if (data && data.tournaments) {
+            return this.processTournaments(data);
+          }
+        } catch (error) {
+          console.log(`Tournament endpoint ${endpoint} failed: ${error.message}`);
+          continue;
+        }
+      }
+      
+      console.warn('All tournament endpoints failed, returning empty array');
+      return [];
     } catch (error) {
       console.error('Failed to fetch tournaments:', error.message);
-      return null;
+      return [];
     }
   }
 
@@ -273,16 +317,15 @@ class SportsradarAPI {
     try {
       console.log('🔄 Fetching all data from Sportsradar...');
       
-      const [atpRankings, wtaRankings, tournaments] = await Promise.allSettled([
-        this.getATPRankings(),
-        this.getWTARankings(),
-        this.getCurrentTournaments()
-      ]);
+      // Fetch data sequentially to avoid rate limiting
+      const atpRankings = await this.getATPRankings();
+      const wtaRankings = await this.getWTARankings();
+      const tournaments = await this.getCurrentTournaments();
 
       const result = {
-        atp_rankings: atpRankings.status === 'fulfilled' ? atpRankings.value : [],
-        wta_rankings: wtaRankings.status === 'fulfilled' ? wtaRankings.value : [],
-        tournaments: tournaments.status === 'fulfilled' ? tournaments.value : [],
+        atp_rankings: atpRankings || [],
+        wta_rankings: wtaRankings || [],
+        tournaments: tournaments || [],
         last_updated: new Date().toISOString()
       };
 

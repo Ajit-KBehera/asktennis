@@ -37,7 +37,18 @@ class DataSyncService {
       const liveData = await sportsradar.getAllData();
       
       if (!liveData) {
-        throw new Error('Failed to fetch data from Sportsradar');
+        console.log('⚠️  No data received from Sportsradar, skipping sync');
+        return { success: false, reason: 'No data received from Sportsradar' };
+      }
+
+      // Check if we have any data to sync
+      const hasData = (liveData.atp_rankings && liveData.atp_rankings.length > 0) ||
+                     (liveData.wta_rankings && liveData.wta_rankings.length > 0) ||
+                     (liveData.tournaments && liveData.tournaments.length > 0);
+
+      if (!hasData) {
+        console.log('⚠️  No valid data to sync, skipping database update');
+        return { success: false, reason: 'No valid data to sync' };
       }
 
       // Update database with live data
@@ -101,43 +112,59 @@ class DataSyncService {
   async updatePlayersAndRankings(client, liveData) {
     console.log('📊 Updating players and rankings...');
 
-    // Process ATP rankings
-    for (const ranking of liveData.atp_rankings) {
-      await this.upsertPlayer(client, {
-        name: ranking.player_name,
-        country: ranking.country,
-        current_ranking: ranking.ranking,
-        tour: 'ATP'
-      });
+    let totalUpdated = 0;
 
-      await this.upsertRanking(client, {
-        player_name: ranking.player_name,
-        ranking: ranking.ranking,
-        points: ranking.points,
-        tour: ranking.tour,
-        ranking_date: ranking.ranking_date
-      });
+    // Process ATP rankings
+    if (liveData.atp_rankings && liveData.atp_rankings.length > 0) {
+      for (const ranking of liveData.atp_rankings) {
+        try {
+          await this.upsertPlayer(client, {
+            name: ranking.player_name,
+            country: ranking.country,
+            current_ranking: ranking.ranking,
+            tour: 'ATP'
+          });
+
+          await this.upsertRanking(client, {
+            player_name: ranking.player_name,
+            ranking: ranking.ranking,
+            points: ranking.points,
+            tour: ranking.tour,
+            ranking_date: ranking.ranking_date
+          });
+          totalUpdated++;
+        } catch (error) {
+          console.error(`Error updating ATP player ${ranking.player_name}:`, error.message);
+        }
+      }
     }
 
     // Process WTA rankings
-    for (const ranking of liveData.wta_rankings) {
-      await this.upsertPlayer(client, {
-        name: ranking.player_name,
-        country: ranking.country,
-        current_ranking: ranking.ranking,
-        tour: 'WTA'
-      });
+    if (liveData.wta_rankings && liveData.wta_rankings.length > 0) {
+      for (const ranking of liveData.wta_rankings) {
+        try {
+          await this.upsertPlayer(client, {
+            name: ranking.player_name,
+            country: ranking.country,
+            current_ranking: ranking.ranking,
+            tour: 'WTA'
+          });
 
-      await this.upsertRanking(client, {
-        player_name: ranking.player_name,
-        ranking: ranking.ranking,
-        points: ranking.points,
-        tour: ranking.tour,
-        ranking_date: ranking.ranking_date
-      });
+          await this.upsertRanking(client, {
+            player_name: ranking.player_name,
+            ranking: ranking.ranking,
+            points: ranking.points,
+            tour: ranking.tour,
+            ranking_date: ranking.ranking_date
+          });
+          totalUpdated++;
+        } catch (error) {
+          console.error(`Error updating WTA player ${ranking.player_name}:`, error.message);
+        }
+      }
     }
 
-    console.log(`✅ Updated ${liveData.atp_rankings.length + liveData.wta_rankings.length} player rankings`);
+    console.log(`✅ Updated ${totalUpdated} player rankings`);
   }
 
   /**
@@ -146,11 +173,22 @@ class DataSyncService {
   async updateTournaments(client, liveData) {
     console.log('🏆 Updating tournaments...');
 
-    for (const tournament of liveData.tournaments) {
-      await this.upsertTournament(client, tournament);
+    if (!liveData.tournaments || liveData.tournaments.length === 0) {
+      console.log('⚠️  No tournaments to update');
+      return;
     }
 
-    console.log(`✅ Updated ${liveData.tournaments.length} tournaments`);
+    let totalUpdated = 0;
+    for (const tournament of liveData.tournaments) {
+      try {
+        await this.upsertTournament(client, tournament);
+        totalUpdated++;
+      } catch (error) {
+        console.error(`Error updating tournament ${tournament.name}:`, error.message);
+      }
+    }
+
+    console.log(`✅ Updated ${totalUpdated} tournaments`);
   }
 
   /**
