@@ -35,12 +35,6 @@ app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from React build in production
-if (process.env.NODE_ENV === 'production') {
-  console.log('Serving static files from:', path.join(__dirname, 'client/build'));
-  app.use(express.static(path.join(__dirname, 'client/build')));
-}
-
 // Routes
 app.post('/api/query', async (req, res) => {
   try {
@@ -217,8 +211,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Catch-all handler: send back React's index.html file in production
+// Serve static files from React build in production (AFTER API routes)
 if (process.env.NODE_ENV === 'production') {
+  console.log('Serving static files from:', path.join(__dirname, 'client/build'));
+  app.use(express.static(path.join(__dirname, 'client/build')));
+  
+  // Catch-all handler: send back React's index.html file for SPA routing
   app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
   });
