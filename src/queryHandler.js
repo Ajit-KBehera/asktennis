@@ -133,7 +133,26 @@ class TennisQueryHandler {
     } catch (error) {
       console.error('Query processing error:', error);
       
-      // Fallback response for errors
+      // Try direct database query as fallback
+      console.log('AI processing failed, trying direct database query...');
+      try {
+        const fallbackData = await this.queryDatabaseDirectly(question);
+        if (fallbackData && fallbackData.length > 0) {
+          console.log('Found data via direct query fallback');
+          return {
+            answer: this.generateSimpleAnswer(question, fallbackData),
+            data: fallbackData,
+            queryType: 'database_fallback',
+            confidence: 0.6,
+            dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
+            lastUpdated: dataSync.getSyncStatus().lastSync
+          };
+        }
+      } catch (fallbackError) {
+        console.error('Direct database query fallback also failed:', fallbackError);
+      }
+      
+      // Final fallback response
       return {
         answer: "While I don't have access to the full database in demo mode, this would typically be answered using our AI-powered tennis statistics system. The system can analyze player records, tournament results, head-to-head matchups, and various performance metrics to provide detailed insights.",
         data: null,
