@@ -798,11 +798,21 @@ class SportsradarAPI {
    */
   async getScheduleSummaries() {
     try {
-      const data = await this.makeRequest('/schedule/summaries.json');
+      // Try the correct endpoint format (plural)
+      const data = await this.makeRequest('/schedules/summaries.json');
       return this.processScheduleSummaries(data);
     } catch (error) {
       console.error('Failed to fetch schedule summaries:', error.message);
-      return null;
+      // If the general endpoint doesn't work, try getting today's summaries instead
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        console.log(`Trying daily summaries for today (${today}) instead...`);
+        const dailyData = await this.getDailySummaries(today);
+        return dailyData;
+      } catch (fallbackError) {
+        console.error('Fallback to daily summaries also failed:', fallbackError.message);
+        return null;
+      }
     }
   }
 
