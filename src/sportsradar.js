@@ -148,12 +148,36 @@ class SportsradarAPI {
   }
 
   /**
-   * Get tournament schedule
+   * Get tournament schedule (using season-based endpoint)
    */
-  async getTournamentSchedule(tournamentId) {
+  async getTournamentSchedule(seasonId) {
     try {
-      const data = await this.makeRequest(`/tournaments/${tournamentId}/schedule.json`);
-      return this.processTournamentSchedule(data);
+      const data = await this.makeRequest(`/seasons/${seasonId}/summaries.json`);
+      return this.processSeasonSummaries(data);
+    } catch (error) {
+      console.error(`Failed to fetch schedule for season ${seasonId}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get tournament schedule by tournament ID (backward compatibility)
+   * @deprecated Use getTournamentSchedule with seasonId instead
+   */
+  async getTournamentScheduleByTournamentId(tournamentId) {
+    console.warn('⚠️  getTournamentScheduleByTournamentId is deprecated. Use getTournamentSchedule with seasonId instead.');
+    // Try to get season info first, then use season-based endpoint
+    try {
+      const competitions = await this.getCompetitions();
+      const tournament = competitions.find(comp => comp.id === tournamentId);
+      if (tournament) {
+        const seasons = await this.getCompetitionSeasons(tournamentId);
+        if (seasons && seasons.length > 0) {
+          const currentSeason = seasons.find(season => !season.disabled) || seasons[0];
+          return this.getTournamentSchedule(currentSeason.id);
+        }
+      }
+      return null;
     } catch (error) {
       console.error(`Failed to fetch schedule for tournament ${tournamentId}:`, error.message);
       return null;
@@ -161,29 +185,47 @@ class SportsradarAPI {
   }
 
   /**
-   * Get player profile (Competitor Profile)
+   * Get competitor profile (Competitor Profile)
    */
-  async getPlayerProfile(playerId) {
+  async getCompetitorProfile(competitorId) {
     try {
-      const data = await this.makeRequest(`/competitors/${playerId}/profile.json`);
-      return this.processPlayerProfile(data);
+      const data = await this.makeRequest(`/competitors/${competitorId}/profile.json`);
+      return this.processCompetitorProfile(data);
     } catch (error) {
-      console.error(`Failed to fetch player profile ${playerId}:`, error.message);
+      console.error(`Failed to fetch competitor profile ${competitorId}:`, error.message);
       return null;
     }
   }
 
   /**
-   * Get player summaries (previous and upcoming matches)
+   * Get player profile (backward compatibility - use getCompetitorProfile instead)
+   * @deprecated Use getCompetitorProfile instead
    */
-  async getPlayerSummaries(playerId) {
+  async getPlayerProfile(playerId) {
+    console.warn('⚠️  getPlayerProfile is deprecated. Use getCompetitorProfile instead.');
+    return this.getCompetitorProfile(playerId);
+  }
+
+  /**
+   * Get competitor summaries (previous and upcoming matches)
+   */
+  async getCompetitorSummaries(competitorId) {
     try {
-      const data = await this.makeRequest(`/competitors/${playerId}/summaries.json`);
-      return this.processPlayerSummaries(data);
+      const data = await this.makeRequest(`/competitors/${competitorId}/summaries.json`);
+      return this.processCompetitorSummaries(data);
     } catch (error) {
-      console.error(`Failed to fetch player summaries ${playerId}:`, error.message);
+      console.error(`Failed to fetch competitor summaries ${competitorId}:`, error.message);
       return null;
     }
+  }
+
+  /**
+   * Get player summaries (backward compatibility - use getCompetitorSummaries instead)
+   * @deprecated Use getCompetitorSummaries instead
+   */
+  async getPlayerSummaries(playerId) {
+    console.warn('⚠️  getPlayerSummaries is deprecated. Use getCompetitorSummaries instead.');
+    return this.getCompetitorSummaries(playerId);
   }
 
   /**
@@ -226,13 +268,33 @@ class SportsradarAPI {
   }
 
   /**
-   * Get match results
+   * Get match results (using season-based endpoint)
    */
-  async getMatchResults(tournamentId, date = null) {
+  async getMatchResults(seasonId, date = null) {
     try {
       const params = date ? { date } : {};
-      const data = await this.makeRequest(`/tournaments/${tournamentId}/results.json`, params);
-      return this.processMatchResults(data);
+      const data = await this.makeRequest(`/seasons/${seasonId}/summaries.json`, params);
+      return this.processSeasonSummaries(data);
+    } catch (error) {
+      console.error(`Failed to fetch match results for season ${seasonId}:`, error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get match results by tournament ID (backward compatibility)
+   * @deprecated Use getMatchResults with seasonId instead
+   */
+  async getMatchResultsByTournamentId(tournamentId, date = null) {
+    console.warn('⚠️  getMatchResultsByTournamentId is deprecated. Use getMatchResults with seasonId instead.');
+    // Try to get season info first, then use season-based endpoint
+    try {
+      const seasons = await this.getCompetitionSeasons(tournamentId);
+      if (seasons && seasons.length > 0) {
+        const currentSeason = seasons.find(season => !season.disabled) || seasons[0];
+        return this.getMatchResults(currentSeason.id, date);
+      }
+      return null;
     } catch (error) {
       console.error(`Failed to fetch match results for tournament ${tournamentId}:`, error.message);
       return null;
@@ -313,88 +375,37 @@ class SportsradarAPI {
     }));
   }
 
-  /**
-   * Process tournament schedule
-   */
-  processTournamentSchedule(data) {
-    if (!data || !data.schedule) {
-      return [];
-    }
-
-    return data.schedule.map(match => ({
-      id: match.id,
-      tournament_id: data.tournament?.id,
-      player1_id: match.player1?.id,
-      player1_name: match.player1?.name,
-      player2_id: match.player2?.id,
-      player2_name: match.player2?.name,
-      winner_id: match.winner?.id,
-      winner_name: match.winner?.name,
-      score: match.score,
-      duration: match.duration,
-      match_date: match.scheduled,
-      round: match.round,
-      surface: match.surface,
-      status: match.status
-    }));
-  }
 
   /**
-   * Process player profile
+   * Process competitor profile
    */
-  processPlayerProfile(data) {
-    if (!data || !data.player) {
+  processCompetitorProfile(data) {
+    if (!data || !data.competitor) {
       return null;
     }
 
-    const player = data.player;
+    const competitor = data.competitor;
     return {
-      id: player.id,
-      name: player.name,
-      country: player.country_code,
-      birth_date: player.birth_date,
-      height: player.height,
-      weight: player.weight,
-      playing_hand: player.playing_hand,
-      turned_pro: player.turned_pro,
-      current_ranking: player.current_ranking,
-      career_prize_money: player.career_prize_money,
-      coach: player.coach,
-      residence: player.residence
+      id: competitor.id,
+      name: competitor.name,
+      country: competitor.country_code,
+      birth_date: competitor.birth_date,
+      height: competitor.height,
+      weight: competitor.weight,
+      playing_hand: competitor.playing_hand,
+      turned_pro: competitor.turned_pro,
+      current_ranking: competitor.current_ranking,
+      career_prize_money: competitor.career_prize_money,
+      coach: competitor.coach,
+      residence: competitor.residence
     };
   }
 
-  /**
-   * Process match results
-   */
-  processMatchResults(data) {
-    if (!data || !data.results) {
-      return [];
-    }
-
-    return data.results.map(match => ({
-      id: match.id,
-      tournament_id: data.tournament?.id,
-      player1_id: match.player1?.id,
-      player1_name: match.player1?.name,
-      player2_id: match.player2?.id,
-      player2_name: match.player2?.name,
-      winner_id: match.winner?.id,
-      winner_name: match.winner?.name,
-      score: match.score,
-      duration: match.duration,
-      match_date: match.scheduled,
-      round: match.round,
-      surface: match.surface,
-      status: match.status,
-      statistics: match.statistics
-    }));
-  }
 
   /**
-   * Process player summaries
+   * Process competitor summaries
    */
-  processPlayerSummaries(data) {
+  processCompetitorSummaries(data) {
     if (!data || !data.competitor) {
       return null;
     }
