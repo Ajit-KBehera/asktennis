@@ -254,6 +254,24 @@ class TennisQueryHandler {
       
       // Generate natural language response
       console.log('Generating AI answer...');
+      
+      // For ranking questions, use direct answer format instead of AI
+      const lowerQuestion = question.toLowerCase();
+      if (lowerQuestion.includes('rank') || lowerQuestion.includes('ranking') || lowerQuestion.includes('number 1') || lowerQuestion.includes('#1')) {
+        console.log('Using direct answer format for ranking question');
+        const answer = this.generateDirectRankingAnswer(question, queryResult);
+        console.log('Direct ranking answer generated:', answer);
+        
+        return {
+          answer,
+          data: queryResult,
+          queryType: queryAnalysis.type,
+          confidence: queryAnalysis.confidence,
+          dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
+          lastUpdated: dataSync.getSyncStatus().lastSync
+        };
+      }
+      
       const answer = await this.generateAnswer(question, queryResult, queryAnalysis);
       console.log('AI answer generated:', answer);
       
@@ -676,7 +694,7 @@ class TennisQueryHandler {
       }
 
       const prompt = `
-        Generate a natural, conversational answer to this tennis question based on the EXACT data provided:
+        Generate a direct, factual answer to this tennis question based on the EXACT data provided:
         
         Question: "${question}"
         Data: ${JSON.stringify(data)}
@@ -687,14 +705,25 @@ class TennisQueryHandler {
         - Do NOT make up or estimate any numbers
         - If the data shows "11540" points, say "11,540" points (not "1,154")
         - If the data shows "2" titles, say "2" titles (not "24")
-        - Be conversational and engaging
+        
+        RESPONSE STYLE BASED ON QUESTION TYPE:
+        - For ranking questions (like "who is rank 1" or "what is the rank of X"): Give DIRECT, FACTUAL answers
+          Example: "Carlos Alcaraz is ranked #1 with 11,540 points"
+          DO NOT use phrases like "We've got", "As of today", "sitting pretty", "making waves", etc.
+          Just state the facts directly.
+        - For player info questions: Be slightly more conversational but still concise
+        - For tournament/historical questions: Can be more engaging and detailed
+        
+        GENERAL REQUIREMENTS:
+        - Be direct and to-the-point for factual questions
         - Include specific numbers and statistics from the data
-        - Mention player names, tournaments, or other relevant details
         - Keep it concise but informative
         - If showing multiple results, format them clearly
         - Use tennis terminology appropriately
         
-        Don't include phrases like "Based on the data" or "According to the results" - just give the answer directly.
+        Don't include phrases like "Based on the data", "According to the results", "Well, it's...", "We've got", "As of today", "sitting pretty", "making waves", etc. - just give the answer directly.
+        
+        FOR RANKING QUESTIONS: Answer format should be: "[Player Name] is ranked #[number] with [points] points."
         IMPORTANT: Double-check that all numbers in your response exactly match the numbers in the data.
       `;
 
@@ -703,7 +732,7 @@ class TennisQueryHandler {
         messages: [
           {
             role: "system",
-            content: "You are a knowledgeable tennis commentator providing statistical insights. Give clear, engaging answers about tennis statistics. CRITICAL: Always use the exact numbers from the provided data - never estimate or make up statistics. If the data shows 11,540 points, say 11,540 points, not 1,154 points."
+            content: "You are a tennis statistics expert providing direct, factual answers. For ranking questions, give concise, point-blank answers. For other questions, be informative but still direct. CRITICAL: Always use the exact numbers from the provided data - never estimate or make up statistics. If the data shows 11,540 points, say 11,540 points, not 1,154 points."
           },
           {
             role: "user",
@@ -727,6 +756,44 @@ class TennisQueryHandler {
       // Fallback answer
       return this.generateFallbackAnswer(question, data);
     }
+  }
+
+  generateDirectRankingAnswer(question, data) {
+    if (!data || data.length === 0) {
+      return "No ranking data available.";
+    }
+
+    const lowerQuestion = question.toLowerCase();
+    const player = data[0];
+
+    // Handle "who is rank 1" or "who is number 1" questions
+    if (lowerQuestion.includes('rank 1') || lowerQuestion.includes('number 1') || lowerQuestion.includes('#1')) {
+      return `${player.name} is ranked #${player.ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
+    }
+
+    // Handle "what is the rank of [player]" questions
+    if (lowerQuestion.includes('what is the rank') || lowerQuestion.includes('rank of')) {
+      return `${player.name} is ranked #${player.ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
+    }
+
+    // Handle "who is ranked [number]" questions
+    const rankMatch = lowerQuestion.match(/ranked?\s*(\d+)/);
+    if (rankMatch) {
+      const rank = rankMatch[1];
+      return `${player.name} is ranked #${player.ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
+    }
+
+    // Handle multiple players (top 5, top 10, etc.)
+    if (data.length > 1) {
+      const topNumber = lowerQuestion.match(/top\s*(\d+)/)?.[1] || data.length;
+      const players = data.slice(0, parseInt(topNumber)).map(p => 
+        `${p.name} (#${p.ranking}, ${p.points ? p.points.toLocaleString() : 'N/A'} points)`
+      ).join(', ');
+      return `Top ${Math.min(parseInt(topNumber), data.length)}: ${players}.`;
+    }
+
+    // Default ranking response
+    return `${player.name} is ranked #${player.ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
   }
 
   generateFallbackAnswer(question, data) {
@@ -1411,7 +1478,16 @@ class TennisQueryHandler {
     }
     
     if (lowerQuestion.includes('ranking') || lowerQuestion.includes('rank')) {
-      return `The current #${player.current_ranking} ranked player is ${player.name} from ${player.country} (${player.tour} tour).`;
+      // Check if asking about specific rank (like "who is rank 1")
+      if (lowerQuestion.includes('rank 1') || lowerQuestion.includes('number 1') || lowerQuestion.includes('#1')) {
+        return `${player.name} is ranked #${player.ranking || player.current_ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
+      }
+      // Check if asking about a specific player's rank
+      if (lowerQuestion.includes('what is the rank') || lowerQuestion.includes('rank of')) {
+        return `${player.name} is ranked #${player.ranking || player.current_ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
+      }
+      // General ranking response
+      return `${player.name} is ranked #${player.ranking || player.current_ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
     }
     
     if (lowerQuestion.includes('most') || lowerQuestion.includes('highest')) {
