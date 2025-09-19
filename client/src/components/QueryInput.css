@@ -17,6 +17,17 @@
   min-height: 56px;
   padding: 16px 60px 16px 16px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Hide scrollbar while keeping functionality */
+  overflow: hidden;
+  resize: none;
+  /* Custom scrollbar for webkit browsers */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Hide scrollbar for webkit browsers (Chrome, Safari, etc.) */
+.ask-input::-webkit-scrollbar {
+  display: none;
 }
 
 .ask-input:focus {
