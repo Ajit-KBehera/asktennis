@@ -35,7 +35,7 @@ function App() {
         question: question.trim(),
         userId: 'user-123' // In a real app, this would come from authentication
       }, {
-        timeout: 5000 // 5 second timeout
+        timeout: 10000 // 10 second timeout for better user experience
       });
 
       console.log('✅ API call successful!');
@@ -57,7 +57,7 @@ function App() {
       });
       
       if (error?.code === 'ECONNABORTED') {
-        console.log('Request timed out after 5 seconds');
+        console.log('Request timed out after 10 seconds');
       }
       
       console.log('Falling back to mock response');

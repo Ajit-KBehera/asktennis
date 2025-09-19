@@ -24,11 +24,12 @@ const QueryInput: React.FC<QueryInputProps> = ({ onQuery, isLoading }) => {
   };
 
   const exampleQuestions = [
-    "Who has the most aces in Grand Slam finals?",
-    "What is Novak Djokovic's record against Rafael Nadal?",
-    "Who has won the most Wimbledon titles?",
-    "Which player has the highest first serve percentage?",
-    "Who was the youngest player to win a Grand Slam?"
+    "Who is the current number 1 player?",
+    "Show me the top 5 players",
+    "Tell me about Jannik Sinner",
+    "What tournaments are available?",
+    "Who is ranked 2 and 4?",
+    "What are the Grand Slam tournaments?"
   ];
 
   const handleExampleClick = (example: string) => {
