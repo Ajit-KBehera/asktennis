@@ -4,6 +4,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import QueryInput from './components/QueryInput';
 import LoadingSpinner from './components/LoadingSpinner';
+import DataDisplay from './components/DataDisplay';
 
 interface QueryResult {
   question: string;
@@ -205,41 +206,12 @@ function App() {
                         <p className="mb-0">{currentResponse.answer}</p>
                       </div>
 
-                      {/* Data Display */}
+                      {/* Enhanced Data Display */}
                       {currentResponse.data && currentResponse.data.length > 0 && (
-                        <div>
-                          <h6 className="text-white mb-3">
-                            <i className="bi bi-table me-2"></i>
-                            Data
-                          </h6>
-                          <div className="table-responsive">
-                            <table className="table table-striped table-hover">
-                              <thead className="table-dark">
-                                <tr>
-                                  {Object.keys(currentResponse.data[0]).map((key, index) => (
-                                    <th key={index} className="text-capitalize">
-                                      {key.replace(/_/g, ' ')}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {currentResponse.data.slice(0, 10).map((row: any, index: number) => (
-                                  <tr key={index}>
-                                    {Object.values(row).map((value: any, cellIndex: number) => (
-                                      <td key={cellIndex}>{String(value)}</td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          {currentResponse.data.length > 10 && (
-                            <small className="text-muted">
-                              Showing first 10 results of {currentResponse.data.length} total
-                            </small>
-                          )}
-                        </div>
+                        <DataDisplay 
+                          data={currentResponse.data} 
+                          queryType={currentResponse.queryType}
+                        />
                       )}
 
                       {/* Clear Response Button */}
