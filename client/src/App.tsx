@@ -17,6 +17,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || (typeof window !== 'undefi
 
 function App() {
   const [isLoading, setIsLoading] = useState(false);
+  const [currentResponse, setCurrentResponse] = useState<QueryResult | null>(null);
 
   // Debug logging
   console.log('App component loaded');
@@ -42,7 +43,7 @@ function App() {
       
       const result: QueryResult = response.data;
       console.log('Processed result:', result);
-      // Query result handled - could be displayed in a modal or separate page
+      setCurrentResponse(result);
       
     } catch (error: any) {
       console.error('Query error:', error);
@@ -69,6 +70,7 @@ function App() {
         timestamp: new Date().toISOString()
       };
       console.log('Mock result:', mockResult);
+      setCurrentResponse(mockResult);
     } finally {
       setIsLoading(false);
     }
@@ -163,6 +165,84 @@ function App() {
               {isLoading && (
                 <div className="text-center mt-4">
                   <LoadingSpinner />
+                </div>
+              )}
+
+              {/* Response Display */}
+              {currentResponse && !isLoading && (
+                <div className="mt-4">
+                  <div className="card shadow-lg border-0" style={{borderRadius: '20px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)'}}>
+                    <div className="card-body p-4">
+                      <div className="d-flex justify-content-between align-items-center mb-3">
+                        <h5 className="card-title mb-0 text-primary">
+                          <i className="bi bi-chat-dots me-2"></i>
+                          Your Question
+                        </h5>
+                        <small className="text-muted">
+                          {new Date(currentResponse.timestamp).toLocaleTimeString()}
+                        </small>
+                      </div>
+                      <div className="alert alert-light border-0 mb-3" style={{background: 'rgba(0,123,255,0.1)'}}>
+                        <p className="mb-0 fw-medium">{currentResponse.question}</p>
+                      </div>
+                      
+                      <h6 className="text-success mb-3">
+                        <i className="bi bi-lightbulb me-2"></i>
+                        Answer
+                      </h6>
+                      <div className="alert alert-success border-0 mb-3">
+                        <p className="mb-0">{currentResponse.answer}</p>
+                      </div>
+
+                      {/* Data Display */}
+                      {currentResponse.data && currentResponse.data.length > 0 && (
+                        <div>
+                          <h6 className="text-info mb-3">
+                            <i className="bi bi-table me-2"></i>
+                            Data
+                          </h6>
+                          <div className="table-responsive">
+                            <table className="table table-striped table-hover">
+                              <thead className="table-dark">
+                                <tr>
+                                  {Object.keys(currentResponse.data[0]).map((key, index) => (
+                                    <th key={index} className="text-capitalize">
+                                      {key.replace(/_/g, ' ')}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {currentResponse.data.slice(0, 10).map((row: any, index: number) => (
+                                  <tr key={index}>
+                                    {Object.values(row).map((value: any, cellIndex: number) => (
+                                      <td key={cellIndex}>{String(value)}</td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          {currentResponse.data.length > 10 && (
+                            <small className="text-muted">
+                              Showing first 10 results of {currentResponse.data.length} total
+                            </small>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Clear Response Button */}
+                      <div className="text-center mt-4">
+                        <button 
+                          className="btn btn-outline-secondary btn-sm"
+                          onClick={() => setCurrentResponse(null)}
+                        >
+                          <i className="bi bi-x-circle me-2"></i>
+                          Clear Response
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
