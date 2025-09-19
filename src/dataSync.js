@@ -6,6 +6,7 @@ class DataSyncService {
     this.isRunning = false;
     this.lastSyncTime = null;
     this.syncInterval = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    this.sportsradar = sportsradar; // Reference to sportsradar instance
   }
 
   /**
@@ -119,8 +120,7 @@ class DataSyncService {
         // Update competitions (disabled due to database transaction issues)
         // await this.updateCompetitions(client, liveData);
         
-        // Update new XSD data structures
-        await this.updateCompetitionsEnhanced(client, liveData);
+        // Update new XSD data structures (competitions handled separately due to size)
         await this.updateSeasons(client, liveData);
         await this.updateSportEvents(client, liveData);
         await this.updateVenues(client, liveData);
@@ -136,6 +136,33 @@ class DataSyncService {
       throw error;
     } finally {
       client.release();
+    }
+  }
+
+  /**
+   * Sync competitions separately to handle large datasets
+   */
+  async syncCompetitions() {
+    try {
+      console.log('🏆 Starting competitions sync...');
+      
+      // Get fresh data from Sportsradar
+      const liveData = await this.sportsradar.getAllData();
+      if (!liveData || !liveData.competitions) {
+        console.log('⚠️  No competitions data available');
+        return;
+      }
+
+      console.log(`📊 Found ${liveData.competitions.length} competitions to sync`);
+      
+      // Process competitions in batches (separate from main transaction)
+      await this.updateCompetitionsEnhanced(null, liveData);
+      
+      console.log('✅ Competitions sync completed');
+      
+    } catch (error) {
+      console.error('❌ Competitions sync failed:', error.message);
+      throw error;
     }
   }
 
@@ -494,7 +521,7 @@ class DataSyncService {
   }
 
   /**
-   * Update competitions with enhanced XSD data
+   * Update competitions with enhanced XSD data (optimized for large datasets)
    */
   async updateCompetitionsEnhanced(client, liveData) {
     if (!liveData.competitions || liveData.competitions.length === 0) {
@@ -502,39 +529,84 @@ class DataSyncService {
     }
 
     console.log('🏆 Updating competitions with enhanced data...');
+    console.log(`📊 Processing ${liveData.competitions.length} competitions in batches...`);
     
-    for (const competition of liveData.competitions) {
+    // Ensure database connection
+    if (!database.pool) {
+      await database.connect(false);
+    }
+    
+    const batchSize = 50; // Smaller batches to prevent transaction timeouts
+    const competitions = liveData.competitions;
+    let totalProcessed = 0;
+    let totalErrors = 0;
+    
+    for (let i = 0; i < competitions.length; i += batchSize) {
+      const batch = competitions.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(competitions.length / batchSize);
+      
+      console.log(`🔄 Processing batch ${batchNumber}/${totalBatches} (${batch.length} competitions)`);
+      
+      // Process each batch in its own transaction
+      const batchClient = await database.pool.connect();
       try {
-        await client.query(`
-          INSERT INTO competitions (id, name, alternative_name, type, level, gender, parent_id, category_id, category_name, category_country_code)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-          ON CONFLICT (id) DO UPDATE SET
-            name = EXCLUDED.name,
-            alternative_name = EXCLUDED.alternative_name,
-            type = EXCLUDED.type,
-            level = EXCLUDED.level,
-            gender = EXCLUDED.gender,
-            parent_id = EXCLUDED.parent_id,
-            category_id = EXCLUDED.category_id,
-            category_name = EXCLUDED.category_name,
-            category_country_code = EXCLUDED.category_country_code,
-            updated_at = CURRENT_TIMESTAMP
-        `, [
-          competition.id,
-          competition.name,
-          competition.alternative_name,
-          competition.type,
-          competition.level,
-          competition.gender,
-          competition.parent_id,
-          competition.category?.id,
-          competition.category?.name,
-          competition.category?.country_code
-        ]);
+        await batchClient.query('BEGIN');
+        
+        for (const competition of batch) {
+          try {
+            await batchClient.query(`
+              INSERT INTO competitions (id, name, alternative_name, type, level, gender, parent_id, category_id, category_name, category_country_code)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+              ON CONFLICT (id) DO UPDATE SET
+                name = EXCLUDED.name,
+                alternative_name = EXCLUDED.alternative_name,
+                type = EXCLUDED.type,
+                level = EXCLUDED.level,
+                gender = EXCLUDED.gender,
+                parent_id = EXCLUDED.parent_id,
+                category_id = EXCLUDED.category_id,
+                category_name = EXCLUDED.category_name,
+                category_country_code = EXCLUDED.category_country_code,
+                updated_at = CURRENT_TIMESTAMP
+            `, [
+              competition.id,
+              competition.name,
+              competition.alternative_name,
+              competition.type,
+              competition.level,
+              competition.gender,
+              competition.parent_id,
+              competition.category?.id,
+              competition.category?.name,
+              competition.category?.country_code
+            ]);
+            totalProcessed++;
+          } catch (error) {
+            totalErrors++;
+            console.error(`Failed to update competition ${competition.id}:`, error.message);
+            // Continue with next competition
+          }
+        }
+        
+        await batchClient.query('COMMIT');
+        console.log(`✅ Batch ${batchNumber} completed: ${batch.length} competitions processed`);
+        
       } catch (error) {
-        console.error(`Failed to update competition ${competition.id}:`, error.message);
+        await batchClient.query('ROLLBACK');
+        console.error(`❌ Batch ${batchNumber} failed:`, error.message);
+        totalErrors += batch.length;
+      } finally {
+        batchClient.release();
+      }
+      
+      // Add small delay between batches to prevent overwhelming the database
+      if (i + batchSize < competitions.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
+    
+    console.log(`✅ Competitions update completed: ${totalProcessed} processed, ${totalErrors} errors`);
   }
 
   /**
