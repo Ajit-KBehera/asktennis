@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import QueryInput from './components/QueryInput';
-import QueryHistory from './components/QueryHistory';
 import LoadingSpinner from './components/LoadingSpinner';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -130,81 +129,63 @@ function App() {
     return null;
   };
 
-  const clearHistory = () => {
-    setQueryHistory([]);
-  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-tennis-light to-green-50">
+    <div className="min-h-screen bg-gradient-to-br from-tennis-light to-green-50 flex flex-col">
       <Header />
       
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-tennis-dark mb-4">
-            🎾 AskTennis
-          </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Ask any tennis question in natural language and get precise statistical answers. 
-            From player records to tournament statistics, I've got you covered!
-          </p>
-        </div>
-
-        <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-xl border border-gray-100 p-8 mb-8 backdrop-blur-sm">
-          <QueryInput onQuery={handleQuery} isLoading={isLoading} />
-        </div>
-
-        {isLoading && (
-          <div className="flex justify-center mb-8">
-            <LoadingSpinner />
-          </div>
-        )}
-
-        {queryHistory.length > 0 && (
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-semibold text-tennis-dark">
-                Query History
-              </h2>
-              <button
-                onClick={clearHistory}
-                className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                Clear History
-              </button>
-            </div>
-            <QueryHistory history={queryHistory} />
-          </div>
-        )}
-
-        {queryHistory.length === 0 && !isLoading && (
-          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <div className="text-6xl mb-4">🎾</div>
-            <h3 className="text-xl font-semibold text-tennis-dark mb-2">
-              Ready to Answer Your Tennis Questions!
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Try asking questions like:
+      <main className="flex-1 flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-4xl">
+          <div className="text-center mb-12">
+            <h1 className="text-6xl font-bold text-tennis-dark mb-6">
+              🎾 AskTennis
+            </h1>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Ask any tennis question in natural language and get precise statistical answers. 
+              From player records to tournament statistics, I've got you covered!
             </p>
-            <div className="grid md:grid-cols-2 gap-4 text-left max-w-2xl mx-auto">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">Player Statistics:</p>
-                <p className="font-medium">"Who has the most aces in Grand Slam finals?"</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">Head-to-Head:</p>
-                <p className="font-medium">"What is Novak Djokovic's record against Rafael Nadal?"</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">Tournament Records:</p>
-                <p className="font-medium">"Who has won the most Wimbledon titles?"</p>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">Performance Metrics:</p>
-                <p className="font-medium">"Which player has the highest first serve percentage?"</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-white to-gray-50 rounded-3xl shadow-2xl border border-gray-100 p-12 backdrop-blur-sm">
+            <QueryInput onQuery={handleQuery} isLoading={isLoading} />
+          </div>
+
+          {isLoading && (
+            <div className="flex justify-center mt-8">
+              <LoadingSpinner />
+            </div>
+          )}
+
+          {queryHistory.length === 0 && !isLoading && (
+            <div className="mt-12 text-center">
+              <div className="text-8xl mb-6">🎾</div>
+              <h3 className="text-2xl font-semibold text-tennis-dark mb-4">
+                Ready to Answer Your Tennis Questions!
+              </h3>
+              <p className="text-gray-600 mb-8 text-lg">
+                Try asking questions like:
+              </p>
+              <div className="grid md:grid-cols-2 gap-6 text-left max-w-4xl mx-auto">
+                <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-300">
+                  <p className="text-sm text-gray-600 mb-3 font-semibold">Player Statistics:</p>
+                  <p className="font-medium text-gray-800">"Who has the most aces in Grand Slam finals?"</p>
+                </div>
+                <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-300">
+                  <p className="text-sm text-gray-600 mb-3 font-semibold">Head-to-Head:</p>
+                  <p className="font-medium text-gray-800">"What is Novak Djokovic's record against Rafael Nadal?"</p>
+                </div>
+                <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-300">
+                  <p className="text-sm text-gray-600 mb-3 font-semibold">Tournament Records:</p>
+                  <p className="font-medium text-gray-800">"Who has won the most Wimbledon titles?"</p>
+                </div>
+                <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-300">
+                  <p className="text-sm text-gray-600 mb-3 font-semibold">Performance Metrics:</p>
+                  <p className="font-medium text-gray-800">"Which player has the highest first serve percentage?"</p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </main>
 
       <Footer />
