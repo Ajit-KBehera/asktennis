@@ -406,7 +406,8 @@ class TennisQueryHandler {
     const hasMultipleRankings = rankingNumbers.length > 1;
     const hasSpecificRanking = rankingNumbers.length === 1;
     const isTopRanking = /top\s*(\d+)/i.test(question);
-    const isNumberOne = /number\s*one|#1|rank\s*1/i.test(question);
+    // Fix: Use word boundaries to prevent #10 from matching #1
+    const isNumberOne = /\bnumber\s*one\b|\b#1\b|\brank\s*1\b/i.test(question);
     
     if (isNumberOne) {
       return `SELECT p.name, r.ranking, r.points, r.ranking_date 
