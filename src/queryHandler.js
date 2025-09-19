@@ -858,6 +858,12 @@ class TennisQueryHandler {
         if (pattern.patterns.some(p => p.test(question))) {
           console.log(`🎯 Matched pattern: ${pattern.name}`);
           const result = await pattern.handler();
+          
+          // For tournament queries, don't fall back to general queries if no data found
+          if (pattern.name === 'tournament_queries') {
+            return result; // Return empty array for proper "no data" handling
+          }
+          
           if (result && result.length > 0) {
             return result;
           }
@@ -1002,8 +1008,49 @@ class TennisQueryHandler {
    */
   async handleTournamentQueries(lowerQuestion) {
     try {
-      // For now, return empty as we don't have tournament results
-      // This could be enhanced when tournament data is available
+      // Check if asking about specific tournament winners
+      if (lowerQuestion.includes('won') || lowerQuestion.includes('winner')) {
+        // Extract tournament name and year
+        let tournamentName = '';
+        let year = '';
+        
+        if (lowerQuestion.includes('us open')) {
+          tournamentName = 'US Open';
+        } else if (lowerQuestion.includes('wimbledon')) {
+          tournamentName = 'Wimbledon';
+        } else if (lowerQuestion.includes('french open')) {
+          tournamentName = 'French Open';
+        } else if (lowerQuestion.includes('australian open')) {
+          tournamentName = 'Australian Open';
+        }
+        
+        // Extract year
+        const yearMatch = lowerQuestion.match(/\b(20\d{2})\b/);
+        if (yearMatch) {
+          year = yearMatch[1];
+        }
+        
+        if (tournamentName) {
+          // Query for tournament winner
+          const result = await database.query(`
+            SELECT p.name, t.name AS tournament_name, m.match_date, t.start_date, t.end_date
+            FROM players p 
+            JOIN matches m ON p.id = m.winner_id 
+            JOIN tournaments t ON m.tournament_id = t.id 
+            WHERE t.name ILIKE '%${tournamentName}%'
+            ${year ? `AND EXTRACT(YEAR FROM t.start_date) = ${year}` : ''}
+            ORDER BY m.match_date DESC
+            LIMIT 1
+          `);
+          
+          if (result.rows.length > 0) {
+            return result.rows;
+          }
+        }
+      }
+      
+      // If no specific winner data found, return empty
+      // This will trigger proper "no data" response instead of fallback to rankings
       return [];
     } catch (error) {
       console.error('Tournament query error:', error.message);
@@ -1074,12 +1121,14 @@ class TennisQueryHandler {
    */
   async handleGeneralQueries(lowerQuestion) {
     try {
-      // Return top players as general fallback
+      // Return top players as general fallback using rankings table for consistency
       const result = await database.query(`
-        SELECT p.name, p.country, p.current_ranking, p.tour
-        FROM players p
-        WHERE p.current_ranking > 0 
-        ORDER BY p.current_ranking 
+        SELECT p.name, p.country, r.ranking as current_ranking, p.tour
+        FROM rankings r
+        JOIN players p ON r.player_id = p.id
+        WHERE r.ranking_date = (SELECT MAX(ranking_date) FROM rankings)
+        AND r.ranking <= 10
+        ORDER BY r.ranking 
         LIMIT 10
       `);
       return result.rows;
