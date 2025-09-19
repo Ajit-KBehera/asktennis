@@ -676,13 +676,17 @@ class TennisQueryHandler {
       }
 
       const prompt = `
-        Generate a natural, conversational answer to this tennis question based on the data:
+        Generate a natural, conversational answer to this tennis question based on the EXACT data provided:
         
         Question: "${question}"
         Data: ${JSON.stringify(data)}
         Analysis: ${JSON.stringify(analysis)}
         
-        Requirements:
+        CRITICAL REQUIREMENTS:
+        - Use ONLY the exact numbers, names, and values from the data above
+        - Do NOT make up or estimate any numbers
+        - If the data shows "11540" points, say "11,540" points (not "1,154")
+        - If the data shows "2" titles, say "2" titles (not "24")
         - Be conversational and engaging
         - Include specific numbers and statistics from the data
         - Mention player names, tournaments, or other relevant details
@@ -691,6 +695,7 @@ class TennisQueryHandler {
         - Use tennis terminology appropriately
         
         Don't include phrases like "Based on the data" or "According to the results" - just give the answer directly.
+        IMPORTANT: Double-check that all numbers in your response exactly match the numbers in the data.
       `;
 
       const response = await this.groq.chat.completions.create({
@@ -698,7 +703,7 @@ class TennisQueryHandler {
         messages: [
           {
             role: "system",
-            content: "You are a knowledgeable tennis commentator providing statistical insights. Give clear, engaging answers about tennis statistics."
+            content: "You are a knowledgeable tennis commentator providing statistical insights. Give clear, engaging answers about tennis statistics. CRITICAL: Always use the exact numbers from the provided data - never estimate or make up statistics. If the data shows 11,540 points, say 11,540 points, not 1,154 points."
           },
           {
             role: "user",
