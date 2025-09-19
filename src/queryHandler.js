@@ -893,14 +893,14 @@ class TennisQueryHandler {
       // Enhanced pattern matching with priority order
       const queryPatterns = [
         {
+          name: 'player_queries',
+          patterns: [/rank.*of|what.*rank|ranking.*of|who.*rank/i],
+          handler: () => this.handlePlayerQueries(lowerQuestion)
+        },
+        {
           name: 'ranking_queries',
           patterns: [/ranking|rank|number\s*\d+|top\s*\d+|#\d+/i],
           handler: () => this.handleRankingQueries(lowerQuestion)
-        },
-        {
-          name: 'player_queries',
-          patterns: [/jannik|sinner|alcaraz|carlos|djokovic|novak|nadal|federer|murray/i],
-          handler: () => this.handlePlayerQueries(lowerQuestion)
         },
         {
           name: 'tournament_queries',
@@ -1029,51 +1029,62 @@ class TennisQueryHandler {
    */
   async handlePlayerQueries(lowerQuestion) {
     try {
-      // Extract player name from question
-      const playerNames = ['jannik', 'sinner', 'alcaraz', 'carlos', 'djokovic', 'novak', 'nadal', 'federer', 'murray'];
-      const matchedPlayer = playerNames.find(name => lowerQuestion.includes(name));
+      // Extract player name from question dynamically
+      // Look for patterns like "rank of [player]", "what is the rank of [player]", etc.
+      const rankPatterns = [
+        /rank\s+of\s+([a-z\s]+)/i,
+        /what\s+is\s+the\s+rank\s+of\s+([a-z\s]+)/i,
+        /ranking\s+of\s+([a-z\s]+)/i,
+        /who\s+is\s+([a-z\s]+)/i
+      ];
       
-      if (matchedPlayer) {
-        let searchPattern = '';
-        switch (matchedPlayer) {
-          case 'jannik':
-          case 'sinner':
-            searchPattern = '%sinner%';
-            break;
-          case 'alcaraz':
-          case 'carlos':
-            searchPattern = '%alcaraz%';
-            break;
-          case 'djokovic':
-          case 'novak':
-            searchPattern = '%djokovic%';
-            break;
-          case 'nadal':
-            searchPattern = '%nadal%';
-            break;
-          case 'federer':
-            searchPattern = '%federer%';
-            break;
-          case 'murray':
-            searchPattern = '%murray%';
-            break;
+      let playerName = '';
+      for (const pattern of rankPatterns) {
+        const match = lowerQuestion.match(pattern);
+        if (match && match[1]) {
+          playerName = match[1].trim();
+          break;
         }
+      }
+      
+      // If no pattern matched, try to extract from common player names
+      if (!playerName) {
+        const playerNames = ['jannik', 'sinner', 'alcaraz', 'carlos', 'djokovic', 'novak', 'nadal', 'federer', 'murray', 'arthur', 'fils'];
+        const matchedPlayer = playerNames.find(name => lowerQuestion.includes(name));
+        if (matchedPlayer) {
+          playerName = matchedPlayer;
+        }
+      }
+      
+      if (playerName) {
+        // Create search patterns for the player name
+        // Try both "First Last" and "Last, First" formats
+        const searchPatterns = [
+          `%${playerName}%`,  // "Arthur Fils"
+          `%${playerName.split(' ').reverse().join(', ')}%`  // "Fils, Arthur"
+        ];
         
-        const result = await database.query(`
-          SELECT p.name, p.country, p.country_code, p.current_ranking, p.tour, p.birth_date, 
-                 p.height, p.weight, p.playing_hand, p.handedness, p.turned_pro, p.pro_year, 
-                 p.career_prize_money, p.highest_singles_ranking, p.highest_singles_ranking_date, 
-                 p.gender, p.abbreviation, p.nationality,
-                 r.ranking, r.points, r.ranking_date
-          FROM players p
-          LEFT JOIN rankings r ON p.id = r.player_id 
-            AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings)
-          WHERE p.name ILIKE $1
-          AND p.tour = 'ATP'
-          ORDER BY p.current_ranking ASC
-          LIMIT 1
-        `, [searchPattern]);
-        return result.rows;
+        // Try each pattern until we find a match
+        for (const searchPattern of searchPatterns) {
+          const result = await database.query(`
+            SELECT p.name, p.country, p.country_code, p.current_ranking, p.tour, p.birth_date, 
+                   p.height, p.weight, p.playing_hand, p.handedness, p.turned_pro, p.pro_year, 
+                   p.career_prize_money, p.highest_singles_ranking, p.highest_singles_ranking_date, 
+                   p.gender, p.abbreviation, p.nationality,
+                   r.ranking, r.points, TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date
+            FROM players p
+            LEFT JOIN rankings r ON p.id = r.player_id 
+              AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings)
+            WHERE p.name ILIKE $1
+            AND p.tour = 'ATP'
+            ORDER BY p.current_ranking ASC
+            LIMIT 1
+          `, [searchPattern]);
+          
+          if (result.rows.length > 0) {
+            return result.rows;
+          }
+        }
       }
       
       return [];
