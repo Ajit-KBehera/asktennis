@@ -41,8 +41,12 @@ class DataSyncService {
         return { success: false, reason: 'No data received from Sportsradar' };
       }
 
-        // Check if we have any data to sync (ATP rankings only for now)
-        const hasData = (liveData.atp_rankings && liveData.atp_rankings.length > 0);
+        // Check if we have any data to sync (enhanced with XSD data)
+        const hasData = (liveData.atp_rankings && liveData.atp_rankings.length > 0) ||
+                       (liveData.competitions && liveData.competitions.length > 0) ||
+                       (liveData.schedule_summaries && liveData.schedule_summaries.length > 0) ||
+                       (liveData.race_rankings && liveData.race_rankings.length > 0) ||
+                       (liveData.complexes && liveData.complexes.length > 0);
 
       if (!hasData) {
         console.log('⚠️  No valid data to sync, skipping database update');
@@ -50,9 +54,13 @@ class DataSyncService {
           success: false, 
           reason: 'No valid data to sync',
           data: {
-            atp_rankings: 0,
-            wta_rankings: 0,
-            competitions: 0
+            atp_rankings: liveData.atp_rankings?.length || 0,
+            wta_rankings: liveData.wta_rankings?.length || 0,
+            competitions: liveData.competitions?.length || 0,
+            schedule_summaries: liveData.schedule_summaries?.length || 0,
+            race_rankings: liveData.race_rankings?.length || 0,
+            double_rankings: liveData.double_rankings?.length || 0,
+            complexes: liveData.complexes?.length || 0
           }
         };
       }
@@ -67,9 +75,14 @@ class DataSyncService {
           success: true,
           lastSync: this.lastSyncTime,
           data: {
-            atp_rankings: liveData.atp_rankings.length,
-            wta_rankings: liveData.wta_rankings.length,
-            competitions: liveData.competitions.length
+            atp_rankings: liveData.atp_rankings?.length || 0,
+            wta_rankings: liveData.wta_rankings?.length || 0,
+            competitions: liveData.competitions?.length || 0,
+            schedule_summaries: liveData.schedule_summaries?.length || 0,
+            race_rankings: liveData.race_rankings?.length || 0,
+            double_rankings: liveData.double_rankings?.length || 0,
+            complexes: liveData.complexes?.length || 0,
+            live_summaries: liveData.live_summaries?.length || 0
           }
         };
 
@@ -105,6 +118,14 @@ class DataSyncService {
         
         // Update competitions (disabled due to database transaction issues)
         // await this.updateCompetitions(client, liveData);
+        
+        // Update new XSD data structures
+        await this.updateCompetitionsEnhanced(client, liveData);
+        await this.updateSeasons(client, liveData);
+        await this.updateSportEvents(client, liveData);
+        await this.updateVenues(client, liveData);
+        await this.updateRaceRankings(client, liveData);
+        await this.updateDoubleRankings(client, liveData);
 
       await client.query('COMMIT');
       console.log('✅ Database updated successfully');
@@ -470,6 +491,244 @@ class DataSyncService {
     console.log('⏹️  Stopping automatic data sync');
     // Note: In a real implementation, you'd store the interval ID and clear it
     // For now, this is just a placeholder
+  }
+
+  /**
+   * Update competitions with enhanced XSD data
+   */
+  async updateCompetitionsEnhanced(client, liveData) {
+    if (!liveData.competitions || liveData.competitions.length === 0) {
+      return;
+    }
+
+    console.log('🏆 Updating competitions with enhanced data...');
+    
+    for (const competition of liveData.competitions) {
+      try {
+        await client.query(`
+          INSERT INTO competitions (id, name, alternative_name, type, level, gender, parent_id, category_id, category_name, category_country_code)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          ON CONFLICT (id) DO UPDATE SET
+            name = EXCLUDED.name,
+            alternative_name = EXCLUDED.alternative_name,
+            type = EXCLUDED.type,
+            level = EXCLUDED.level,
+            gender = EXCLUDED.gender,
+            parent_id = EXCLUDED.parent_id,
+            category_id = EXCLUDED.category_id,
+            category_name = EXCLUDED.category_name,
+            category_country_code = EXCLUDED.category_country_code,
+            updated_at = CURRENT_TIMESTAMP
+        `, [
+          competition.id,
+          competition.name,
+          competition.alternative_name,
+          competition.type,
+          competition.level,
+          competition.gender,
+          competition.parent_id,
+          competition.category?.id,
+          competition.category?.name,
+          competition.category?.country_code
+        ]);
+      } catch (error) {
+        console.error(`Failed to update competition ${competition.id}:`, error.message);
+      }
+    }
+  }
+
+  /**
+   * Update seasons data
+   */
+  async updateSeasons(client, liveData) {
+    // This would be called with specific season data
+    // For now, it's a placeholder for future implementation
+    console.log('📅 Seasons update placeholder - would sync season data');
+  }
+
+  /**
+   * Update sport events data
+   */
+  async updateSportEvents(client, liveData) {
+    if (!liveData.schedule_summaries || liveData.schedule_summaries.length === 0) {
+      return;
+    }
+
+    console.log('⚡ Updating sport events...');
+    
+    for (const summary of liveData.schedule_summaries) {
+      if (summary.sport_event) {
+        try {
+          await client.query(`
+            INSERT INTO sport_events (id, parent_id, start_time, start_time_confirmed, type, estimated, replaced_by, resume_time)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (id) DO UPDATE SET
+              parent_id = EXCLUDED.parent_id,
+              start_time = EXCLUDED.start_time,
+              start_time_confirmed = EXCLUDED.start_time_confirmed,
+              type = EXCLUDED.type,
+              estimated = EXCLUDED.estimated,
+              replaced_by = EXCLUDED.replaced_by,
+              resume_time = EXCLUDED.resume_time,
+              updated_at = CURRENT_TIMESTAMP
+          `, [
+            summary.sport_event.id,
+            summary.sport_event.parent_id,
+            summary.sport_event.start_time,
+            summary.sport_event.start_time_confirmed,
+            summary.sport_event.type,
+            summary.sport_event.estimated,
+            summary.sport_event.replaced_by,
+            summary.sport_event.resume_time
+          ]);
+        } catch (error) {
+          console.error(`Failed to update sport event ${summary.sport_event.id}:`, error.message);
+        }
+      }
+    }
+  }
+
+  /**
+   * Update venues data
+   */
+  async updateVenues(client, liveData) {
+    if (!liveData.complexes || liveData.complexes.length === 0) {
+      return;
+    }
+
+    console.log('🏟️ Updating venues and complexes...');
+    
+    for (const complex of liveData.complexes) {
+      try {
+        // Insert complex
+        await client.query(`
+          INSERT INTO complexes (id, name)
+          VALUES ($1, $2)
+          ON CONFLICT (id) DO UPDATE SET
+            name = EXCLUDED.name,
+            updated_at = CURRENT_TIMESTAMP
+        `, [complex.id, complex.name]);
+
+        // Insert venues for this complex
+        if (complex.venues && complex.venues.length > 0) {
+          for (const venue of complex.venues) {
+            await client.query(`
+              INSERT INTO venues (id, name, city_name, country_name, country_code, capacity, timezone, map_coordinates, reduced_capacity, reduced_capacity_max, changed)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+              ON CONFLICT (id) DO UPDATE SET
+                name = EXCLUDED.name,
+                city_name = EXCLUDED.city_name,
+                country_name = EXCLUDED.country_name,
+                country_code = EXCLUDED.country_code,
+                capacity = EXCLUDED.capacity,
+                timezone = EXCLUDED.timezone,
+                map_coordinates = EXCLUDED.map_coordinates,
+                reduced_capacity = EXCLUDED.reduced_capacity,
+                reduced_capacity_max = EXCLUDED.reduced_capacity_max,
+                changed = EXCLUDED.changed,
+                updated_at = CURRENT_TIMESTAMP
+            `, [
+              venue.id,
+              venue.name,
+              venue.city_name,
+              venue.country_name,
+              venue.country_code,
+              venue.capacity,
+              venue.timezone,
+              venue.map_coordinates,
+              venue.reduced_capacity,
+              venue.reduced_capacity_max,
+              venue.changed
+            ]);
+
+            // Link venue to complex
+            await client.query(`
+              INSERT INTO complex_venues (complex_id, venue_id)
+              VALUES ($1, $2)
+              ON CONFLICT DO NOTHING
+            `, [complex.id, venue.id]);
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to update complex ${complex.id}:`, error.message);
+      }
+    }
+  }
+
+  /**
+   * Update race rankings data
+   */
+  async updateRaceRankings(client, liveData) {
+    if (!liveData.race_rankings || liveData.race_rankings.length === 0) {
+      return;
+    }
+
+    console.log('🏃 Updating race rankings...');
+    
+    for (const ranking of liveData.race_rankings) {
+      if (ranking.competitor_rankings && ranking.competitor_rankings.length > 0) {
+        for (const competitorRanking of ranking.competitor_rankings) {
+          try {
+            // Find player by sportsradar_id
+            const playerResult = await client.query(`
+              SELECT id FROM players WHERE sportsradar_id = $1
+            `, [competitorRanking.competitor_id]);
+
+            if (playerResult.rows.length > 0) {
+              const playerId = playerResult.rows[0].id;
+              
+              await client.query(`
+                INSERT INTO race_rankings (player_id, sportsradar_id, ranking, points, tour, ranking_date, year, week, type_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                ON CONFLICT (player_id, ranking_date, year) DO UPDATE SET
+                  ranking = EXCLUDED.ranking,
+                  points = EXCLUDED.points,
+                  tour = EXCLUDED.tour,
+                  week = EXCLUDED.week,
+                  type_id = EXCLUDED.type_id
+              `, [
+                playerId,
+                competitorRanking.competitor_id,
+                competitorRanking.rank,
+                competitorRanking.points,
+                ranking.gender === 'male' ? 'ATP' : 'WTA',
+                new Date(),
+                ranking.year,
+                ranking.week,
+                ranking.type_id
+              ]);
+            }
+          } catch (error) {
+            console.error(`Failed to update race ranking for ${competitorRanking.competitor_id}:`, error.message);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Update double rankings data
+   */
+  async updateDoubleRankings(client, liveData) {
+    if (!liveData.double_rankings || liveData.double_rankings.length === 0) {
+      return;
+    }
+
+    console.log('👥 Updating double rankings...');
+    
+    for (const ranking of liveData.double_rankings) {
+      if (ranking.competitor_rankings && ranking.competitor_rankings.length > 0) {
+        for (const competitorRanking of ranking.competitor_rankings) {
+          try {
+            // For doubles, we'd need to handle player pairs
+            // This is a simplified implementation
+            console.log(`Double ranking for ${competitorRanking.name}: rank ${competitorRanking.rank}, points ${competitorRanking.points}`);
+          } catch (error) {
+            console.error(`Failed to update double ranking for ${competitorRanking.competitor_id}:`, error.message);
+          }
+        }
+      }
+    }
   }
 }
 

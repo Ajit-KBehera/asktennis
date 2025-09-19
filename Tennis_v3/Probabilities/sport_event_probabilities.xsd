@@ -1,0 +1,208 @@
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="sport_event_probabilities" type="v3:sport_event_probabilitiesType" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+  <xs:complexType name="sportType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:string" name="id"/>
+        <xs:attribute type="xs:string" name="name"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="categoryType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:string" name="id"/>
+        <xs:attribute type="xs:string" name="name"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="competitionType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:string" name="id"/>
+        <xs:attribute type="xs:string" name="name"/>
+        <xs:attribute type="xs:string" name="parent_id"/>
+        <xs:attribute type="xs:string" name="type"/>
+        <xs:attribute type="xs:string" name="gender"/>
+        <xs:attribute type="xs:string" name="level"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="seasonType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:string" name="id"/>
+        <xs:attribute type="xs:string" name="name"/>
+        <xs:attribute type="xs:date" name="start_date"/>
+        <xs:attribute type="xs:date" name="end_date"/>
+        <xs:attribute type="xs:short" name="year"/>
+        <xs:attribute type="xs:string" name="competition_id"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="stageType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:byte" name="order"/>
+        <xs:attribute type="xs:string" name="type"/>
+        <xs:attribute type="xs:string" name="phase"/>
+        <xs:attribute type="xs:date" name="start_date"/>
+        <xs:attribute type="xs:date" name="end_date"/>
+        <xs:attribute type="xs:short" name="year"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="roundType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:string" name="name"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="groupType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:string" name="id"/>
+        <xs:attribute type="xs:string" name="name"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="groupsType">
+    <xs:sequence>
+      <xs:element type="v3:groupType" name="group" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="modeType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:byte" name="best_of"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="sport_event_contextType">
+    <xs:sequence>
+      <xs:element type="v3:sportType" name="sport" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+      <xs:element type="v3:categoryType" name="category" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+      <xs:element type="v3:competitionType" name="competition" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+      <xs:element type="v3:seasonType" name="season" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+      <xs:element type="v3:stageType" name="stage" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+      <xs:element type="v3:roundType" name="round" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+      <xs:element type="v3:groupsType" name="groups" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+      <xs:element type="v3:modeType" name="mode" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="sport_event_propertiesType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:string" name="enhanced_stats"/>
+        <xs:attribute type="xs:string" name="scores"/>
+        <xs:attribute type="xs:string" name="detailed_serve_outcomes"/>
+        <xs:attribute type="xs:string" name="play_by_play"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="coverageType">
+    <xs:sequence>
+      <xs:element type="v3:sport_event_propertiesType" name="sport_event_properties" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+    </xs:sequence>
+    <xs:attribute type="xs:string" name="type"/>
+  </xs:complexType>
+  <xs:complexType name="competitorType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:string" name="id" use="optional"/>
+        <xs:attribute type="xs:string" name="name" use="optional"/>
+        <xs:attribute type="xs:string" name="country" use="optional"/>
+        <xs:attribute type="xs:string" name="country_code" use="optional"/>
+        <xs:attribute type="xs:string" name="abbreviation" use="optional"/>
+        <xs:attribute type="xs:string" name="qualifier" use="optional"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="competitorsType">
+    <xs:sequence>
+      <xs:element type="v3:competitorType" name="competitor" maxOccurs="unbounded" minOccurs="0" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="venueType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:string" name="id"/>
+        <xs:attribute type="xs:string" name="name"/>
+        <xs:attribute type="xs:string" name="city_name"/>
+        <xs:attribute type="xs:string" name="country_name"/>
+        <xs:attribute type="xs:string" name="country_code"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="sport_eventType">
+    <xs:sequence>
+      <xs:element type="v3:sport_event_contextType" name="sport_event_context" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+      <xs:element type="v3:coverageType" name="coverage" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+      <xs:element type="v3:competitorsType" name="competitors" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+      <xs:element type="v3:venueType" name="venue" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+    </xs:sequence>
+    <xs:attribute type="xs:string" name="id"/>
+    <xs:attribute type="xs:dateTime" name="start_time"/>
+    <xs:attribute type="xs:string" name="start_time_confirmed"/>
+  </xs:complexType>
+  <xs:complexType name="period_scoreType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:byte" name="home_score" use="optional"/>
+        <xs:attribute type="xs:byte" name="away_score" use="optional"/>
+        <xs:attribute type="xs:string" name="type" use="optional"/>
+        <xs:attribute type="xs:byte" name="number" use="optional"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="period_scoresType">
+    <xs:sequence>
+      <xs:element type="v3:period_scoreType" name="period_score" maxOccurs="unbounded" minOccurs="0" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="sport_event_statusType">
+    <xs:sequence>
+      <xs:element type="v3:period_scoresType" name="period_scores" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+    </xs:sequence>
+    <xs:attribute type="xs:string" name="status"/>
+    <xs:attribute type="xs:string" name="match_status"/>
+    <xs:attribute type="xs:byte" name="home_score"/>
+    <xs:attribute type="xs:byte" name="away_score"/>
+    <xs:attribute type="xs:string" name="winner_id"/>
+  </xs:complexType>
+  <xs:complexType name="outcomeType">
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute type="xs:string" name="name" use="optional"/>
+        <xs:attribute type="xs:float" name="probability" use="optional"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+  <xs:complexType name="outcomesType">
+    <xs:sequence>
+      <xs:element type="v3:outcomeType" name="outcome" maxOccurs="unbounded" minOccurs="0" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="marketType">
+    <xs:sequence>
+      <xs:element type="v3:outcomesType" name="outcomes" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+    </xs:sequence>
+    <xs:attribute type="xs:string" name="name" use="optional"/>
+    <xs:attribute type="xs:dateTime" name="last_updated" use="optional"/>
+    <xs:attribute type="xs:string" name="live" use="optional"/>
+  </xs:complexType>
+  <xs:complexType name="marketsType">
+    <xs:sequence>
+      <xs:element type="v3:marketType" name="market" maxOccurs="unbounded" minOccurs="0" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="sport_event_probabilitiesType">
+    <xs:sequence>
+      <xs:element type="v3:sport_eventType" name="sport_event" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+      <xs:element type="v3:sport_event_statusType" name="sport_event_status" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+      <xs:element type="v3:marketsType" name="markets" xmlns:v3="http://schemas.sportradar.com/sportsapi/tennis-probabilities/v3"/>
+    </xs:sequence>
+    <xs:attribute type="xs:dateTime" name="generated_at"/>
+  </xs:complexType>
+</xs:schema>

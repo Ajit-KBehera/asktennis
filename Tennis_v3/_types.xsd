@@ -1,0 +1,1050 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:complexType name="CompetitionsEndpointType">
+    <xs:sequence>
+      <xs:element type="CompetitionWithCategoryType" name="competition" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="CompetitionWithCategoryType">
+    <xs:all>
+      <xs:element type="categoryType" name="category" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="gender" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="level" type="xs:string"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="parent_id" type="xs:string"/>
+    <xs:attribute name="type" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="categoryType">
+    <xs:attribute name="country_code" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="CompetitionInfoEndpointType">
+    <xs:sequence>
+      <xs:element type="CompetitionExtendedType" name="competition" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element type="infoType" name="info" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="CompetitionExtendedType">
+    <xs:all>
+      <xs:element type="categoryType" name="category" minOccurs="0"/>
+      <xs:element type="childrenType" name="children" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="alternative_name" type="xs:string"/>
+    <xs:attribute name="gender" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="level" type="xs:string"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="parent_id" type="xs:string"/>
+    <xs:attribute name="type" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="competitionType">
+    <xs:attribute name="alternative_name" type="xs:string"/>
+    <xs:attribute name="gender" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="level" type="xs:string"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="parent_id" type="xs:string"/>
+    <xs:attribute name="type" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="childrenType">
+    <xs:sequence>
+      <xs:element type="competitionType" name="competition" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="infoType">
+    <xs:attribute name="competition_status" type="xs:string"/>
+    <xs:attribute name="complex" type="xs:string"/>
+    <xs:attribute name="complex_id" type="xs:string"/>
+    <xs:attribute name="number_of_competitors" type="xs:integer"/>
+    <xs:attribute name="number_of_qualified_competitors" type="xs:integer"/>
+    <xs:attribute name="number_of_scheduled_matches" type="xs:integer"/>
+    <xs:attribute name="prize_currency" type="xs:string"/>
+    <xs:attribute name="prize_money" type="xs:integer"/>
+    <xs:attribute name="surface" type="xs:string"/>
+    <xs:attribute name="venue_reduced_capacity" type="xs:boolean"/>
+    <xs:attribute name="venue_reduced_capacity_max" type="xs:integer"/>
+  </xs:complexType>
+  <xs:complexType name="CompetitionSeasonsType">
+    <xs:sequence>
+      <xs:element type="seasonType" name="season" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="seasonType">
+    <xs:attribute name="competition_id" type="xs:string" use="required"/>
+    <xs:attribute name="disabled" type="xs:boolean"/>
+    <xs:attribute name="end_date" type="xs:string" use="required"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="start_date" type="xs:string" use="required"/>
+    <xs:attribute name="year" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="CompetitorDoublesCompetitionsPlayedEndpointType">
+    <xs:sequence>
+      <xs:element type="CompetitionWithCompetitorsType" name="competition" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="CompetitionWithCompetitorsType">
+    <xs:all>
+      <xs:element type="CompetitionCompetitorsType" name="competitors" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="gender" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="level" type="xs:string"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="parent_id" type="xs:string"/>
+    <xs:attribute name="type" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="CompetitorType">
+    <xs:all>
+      <xs:element type="DoubleCompetitorPlayersType" name="players" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="abbreviation" type="xs:string"/>
+    <xs:attribute name="bracket_number" type="xs:integer"/>
+    <xs:attribute name="country" type="xs:string"/>
+    <xs:attribute name="country_code" type="xs:string"/>
+    <xs:attribute name="gender" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="qualifier" type="xs:string"/>
+    <xs:attribute name="seed" type="xs:integer"/>
+    <xs:attribute name="virtual" type="xs:boolean"/>
+  </xs:complexType>
+  <xs:complexType name="DoubleCompetitorPlayerType">
+    <xs:attribute name="abbreviation" type="xs:string"/>
+    <xs:attribute name="country" type="xs:string"/>
+    <xs:attribute name="country_code" type="xs:string"/>
+    <xs:attribute name="date_of_birth" type="xs:string"/>
+    <xs:attribute name="gender" type="xs:string"/>
+    <xs:attribute name="height" type="xs:integer"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="nationality" type="xs:string"/>
+    <xs:attribute name="weight" type="xs:integer"/>
+  </xs:complexType>
+  <xs:complexType name="DoubleCompetitorPlayersType">
+    <xs:sequence>
+      <xs:element type="DoubleCompetitorPlayerType" name="player" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="CompetitionCompetitorsType">
+    <xs:sequence>
+      <xs:element type="CompetitorType" name="competitor" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="CompetitorProfileEndpointType">
+    <xs:all>
+      <xs:element type="competitions_playedType" name="competitions_played" minOccurs="0"/>
+      <xs:element type="CompetitorType" name="competitor" minOccurs="0"/>
+      <xs:element type="competitor_rankingsType" name="competitor_rankings" minOccurs="0"/>
+      <xs:element type="TennisCompetitorInfoType" name="info" minOccurs="0"/>
+      <xs:element type="periodsType" name="periods" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="competitions_playedType">
+    <xs:sequence>
+      <xs:element type="competitionType" name="competition" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="CompetitorRankingTennisType">
+    <xs:all>
+      <xs:element type="CompetitorType" name="competitor" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="competitions_played" type="xs:integer"/>
+    <xs:attribute name="competitor_id" type="xs:string"/>
+    <xs:attribute name="movement" type="xs:integer"/>
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="points" type="xs:integer"/>
+    <xs:attribute name="race_ranking" type="xs:boolean"/>
+    <xs:attribute name="rank" type="xs:integer"/>
+    <xs:attribute name="type" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="competitor_rankingsType">
+    <xs:sequence>
+      <xs:element type="CompetitorRankingTennisType" name="competitor_ranking" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="TennisCompetitorInfoType">
+    <xs:attribute name="date_of_birth" type="xs:string"/>
+    <xs:attribute name="handedness" type="xs:string"/>
+    <xs:attribute name="height" type="xs:integer"/>
+    <xs:attribute name="highest_doubles_ranking" type="xs:integer"/>
+    <xs:attribute name="highest_doubles_ranking_date" type="xs:string"/>
+    <xs:attribute name="highest_singles_ranking" type="xs:integer"/>
+    <xs:attribute name="highest_singles_ranking_date" type="xs:string"/>
+    <xs:attribute name="pro_year" type="xs:integer"/>
+    <xs:attribute name="weight" type="xs:integer"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonCompetitorPeriodType">
+    <xs:all>
+      <xs:element type="SurfaceStatisticsType" name="statistics" minOccurs="0"/>
+      <xs:element type="surfacesType" name="surfaces" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="year" type="xs:integer"/>
+  </xs:complexType>
+  <xs:complexType name="SurfaceStatisticsType">
+    <xs:attribute name="competitions_played" type="xs:integer"/>
+    <xs:attribute name="competitions_won" type="xs:integer"/>
+    <xs:attribute name="matches_played" type="xs:integer"/>
+    <xs:attribute name="matches_won" type="xs:integer"/>
+  </xs:complexType>
+  <xs:complexType name="surfaceType">
+    <xs:all>
+      <xs:element type="SurfaceStatisticsType" name="statistics" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="type" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="surfacesType">
+    <xs:sequence>
+      <xs:element type="surfaceType" name="surface" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="periodsType">
+    <xs:sequence>
+      <xs:element type="SeasonCompetitorPeriodType" name="period" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="CompetitorSummariesEndpointType">
+    <xs:sequence>
+      <xs:element type="summaryType" name="summary" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="summaryType">
+    <xs:all>
+      <xs:element type="sport_eventType" name="sport_event" minOccurs="0"/>
+      <xs:element type="sport_event_statusType" name="sport_event_status" minOccurs="0"/>
+      <xs:element type="SportEventStatisticsType" name="statistics" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+  <xs:complexType name="sport_eventType">
+    <xs:all>
+      <xs:element type="channelsType" name="channels" minOccurs="0"/>
+      <xs:element type="SportEventChildrenType" name="children" minOccurs="0"/>
+      <xs:element type="competitorsType" name="competitors" minOccurs="0"/>
+      <xs:element type="CoverageType" name="coverage" minOccurs="0"/>
+      <xs:element type="sport_event_contextType" name="sport_event_context" minOccurs="0"/>
+      <xs:element type="venueType" name="venue" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="estimated" type="xs:boolean"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="parent_id" type="xs:string"/>
+    <xs:attribute name="replaced_by" type="xs:string"/>
+    <xs:attribute name="resume_time" type="xs:string"/>
+    <xs:attribute name="start_time" type="xs:string" use="required"/>
+    <xs:attribute name="start_time_confirmed" type="xs:boolean" use="required"/>
+    <xs:attribute name="type" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="channelType">
+    <xs:attribute name="country" type="xs:string"/>
+    <xs:attribute name="country_code" type="xs:string"/>
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="url" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="channelsType">
+    <xs:sequence>
+      <xs:element type="channelType" name="channel" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SportEventChildType">
+    <xs:all>
+      <xs:element type="competitorsType" name="competitors" minOccurs="0"/>
+      <xs:element type="venueType" name="venue" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="parent_id" type="xs:string"/>
+    <xs:attribute name="replaced_by" type="xs:string"/>
+    <xs:attribute name="resume_time" type="xs:string"/>
+    <xs:attribute name="start_time" type="xs:string" use="required"/>
+    <xs:attribute name="start_time_confirmed" type="xs:boolean" use="required"/>
+    <xs:attribute name="type" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="competitorsType">
+    <xs:sequence>
+      <xs:element type="CompetitorType" name="competitor" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="venueType">
+    <xs:attribute name="capacity" type="xs:integer"/>
+    <xs:attribute name="changed" type="xs:boolean"/>
+    <xs:attribute name="city_name" type="xs:string"/>
+    <xs:attribute name="country_code" type="xs:string"/>
+    <xs:attribute name="country_name" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="map_coordinates" type="xs:string"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="reduced_capacity" type="xs:boolean"/>
+    <xs:attribute name="reduced_capacity_max" type="xs:integer"/>
+    <xs:attribute name="timezone" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SportEventChildrenType">
+    <xs:sequence>
+      <xs:element type="SportEventChildType" name="sport_event" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="CoverageType">
+    <xs:all>
+      <xs:element type="sport_event_propertiesType" name="sport_event_properties" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="type" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="sport_event_propertiesType">
+    <xs:attribute name="detailed_serve_outcomes" type="xs:boolean"/>
+    <xs:attribute name="enhanced_stats" type="xs:boolean"/>
+    <xs:attribute name="play_by_play" type="xs:boolean"/>
+    <xs:attribute name="scores" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="sport_event_contextType">
+    <xs:all>
+      <xs:element type="categoryType" name="category" minOccurs="0"/>
+      <xs:element type="competitionType" name="competition" minOccurs="0"/>
+      <xs:element type="groupsType" name="groups" minOccurs="0"/>
+      <xs:element type="modeType" name="mode" minOccurs="0"/>
+      <xs:element type="SportEventContextRoundType" name="round" minOccurs="0"/>
+      <xs:element type="seasonType" name="season" minOccurs="0"/>
+      <xs:element type="sportType" name="sport" minOccurs="0"/>
+      <xs:element type="SportEventContextStageType" name="stage" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+  <xs:complexType name="SportEventContextGroupType">
+    <xs:attribute name="group_name" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string"/>
+    <xs:attribute name="name" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="groupsType">
+    <xs:sequence>
+      <xs:element type="SportEventContextGroupType" name="group" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="modeType">
+    <xs:attribute name="best_of" type="xs:integer"/>
+  </xs:complexType>
+  <xs:complexType name="SportEventContextRoundType">
+    <xs:attribute name="competition_sport_event_number" type="xs:integer"/>
+    <xs:attribute name="cup_round_id" type="xs:string"/>
+    <xs:attribute name="cup_round_number_of_sport_events" type="xs:integer"/>
+    <xs:attribute name="cup_round_sport_event_number" type="xs:integer"/>
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="number" type="xs:integer"/>
+    <xs:attribute name="other_sport_event_id" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="sportType">
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="SportEventContextStageType">
+    <xs:attribute name="end_date" type="xs:string"/>
+    <xs:attribute name="order" type="xs:integer" use="required"/>
+    <xs:attribute name="phase" type="xs:string" use="required"/>
+    <xs:attribute name="start_date" type="xs:string"/>
+    <xs:attribute name="type" type="xs:string" use="required"/>
+    <xs:attribute name="year" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="sport_event_statusType">
+    <xs:all>
+      <xs:element type="TennisGameStateType" name="game_state" minOccurs="0"/>
+      <xs:element type="period_scoresType" name="period_scores" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="away_normaltime_score" type="xs:integer"/>
+    <xs:attribute name="away_overtime_score" type="xs:integer"/>
+    <xs:attribute name="away_score" type="xs:integer"/>
+    <xs:attribute name="decided_by_fed" type="xs:boolean"/>
+    <xs:attribute name="home_normaltime_score" type="xs:integer"/>
+    <xs:attribute name="home_overtime_score" type="xs:integer"/>
+    <xs:attribute name="home_score" type="xs:integer"/>
+    <xs:attribute name="match_status" type="xs:string"/>
+    <xs:attribute name="scout_abandoned" type="xs:boolean"/>
+    <xs:attribute name="status" type="xs:string" use="required"/>
+    <xs:attribute name="winner_id" type="xs:string"/>
+    <xs:attribute name="winning_reason" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="TennisGameStateType">
+    <xs:attribute name="advantage" type="xs:string"/>
+    <xs:attribute name="away_score" type="xs:integer"/>
+    <xs:attribute name="home_score" type="xs:integer"/>
+    <xs:attribute name="last_point_result" type="xs:string"/>
+    <xs:attribute name="point_type" type="xs:string"/>
+    <xs:attribute name="serving" type="xs:string"/>
+    <xs:attribute name="tie_break" type="xs:boolean"/>
+  </xs:complexType>
+  <xs:complexType name="period_scoreType">
+    <xs:attribute name="away_score" type="xs:integer" use="required"/>
+    <xs:attribute name="away_tiebreak_score" type="xs:integer"/>
+    <xs:attribute name="home_score" type="xs:integer" use="required"/>
+    <xs:attribute name="home_tiebreak_score" type="xs:integer"/>
+    <xs:attribute name="number" type="xs:integer"/>
+    <xs:attribute name="type" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="period_scoresType">
+    <xs:sequence>
+      <xs:element type="period_scoreType" name="period_score" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SportEventStatisticsType">
+    <xs:all>
+      <xs:element type="SportEventStatisticsPeriodsType" name="periods" minOccurs="0"/>
+      <xs:element type="SportEventStatisticsTotalsType" name="totals" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+  <xs:complexType name="SportEventStatisticsPeriodType">
+    <xs:all>
+      <xs:element type="CompetitorStatisticsCompetitorsType" name="competitors" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="number" type="xs:integer"/>
+  </xs:complexType>
+  <xs:complexType name="CompetitorStatisticsType">
+    <xs:all>
+      <xs:element type="DoubleCompetitorPlayersType" name="players" minOccurs="0"/>
+      <xs:element type="CompetitorStatisticsStatisticsType" name="statistics" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="abbreviation" type="xs:string"/>
+    <xs:attribute name="bracket_number" type="xs:integer"/>
+    <xs:attribute name="country" type="xs:string"/>
+    <xs:attribute name="country_code" type="xs:string"/>
+    <xs:attribute name="gender" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="qualifier" type="xs:string"/>
+    <xs:attribute name="seed" type="xs:integer"/>
+    <xs:attribute name="virtual" type="xs:boolean"/>
+  </xs:complexType>
+  <xs:complexType name="CompetitorStatisticsStatisticsType">
+    <xs:attribute name="aces" type="xs:integer"/>
+    <xs:attribute name="backhand_errors" type="xs:integer"/>
+    <xs:attribute name="backhand_unforced_errors" type="xs:integer"/>
+    <xs:attribute name="backhand_winners" type="xs:integer"/>
+    <xs:attribute name="breakpoints_won" type="xs:integer"/>
+    <xs:attribute name="double_faults" type="xs:integer"/>
+    <xs:attribute name="drop_shot_unforced_errors" type="xs:integer"/>
+    <xs:attribute name="drop_shot_winners" type="xs:integer"/>
+    <xs:attribute name="first_serve_points_won" type="xs:integer"/>
+    <xs:attribute name="first_serve_successful" type="xs:integer"/>
+    <xs:attribute name="forehand_errors" type="xs:integer"/>
+    <xs:attribute name="forehand_unforced_errors" type="xs:integer"/>
+    <xs:attribute name="forehand_winners" type="xs:integer"/>
+    <xs:attribute name="games_won" type="xs:integer"/>
+    <xs:attribute name="groundstroke_errors" type="xs:integer"/>
+    <xs:attribute name="groundstroke_unforced_errors" type="xs:integer"/>
+    <xs:attribute name="groundstroke_winners" type="xs:integer"/>
+    <xs:attribute name="lob_unforced_errors" type="xs:integer"/>
+    <xs:attribute name="lob_winners" type="xs:integer"/>
+    <xs:attribute name="max_games_in_a_row" type="xs:integer"/>
+    <xs:attribute name="max_points_in_a_row" type="xs:integer"/>
+    <xs:attribute name="overhead_stroke_errors" type="xs:integer"/>
+    <xs:attribute name="overhead_stroke_unforced_errors" type="xs:integer"/>
+    <xs:attribute name="overhead_stroke_winners" type="xs:integer"/>
+    <xs:attribute name="points_won" type="xs:integer"/>
+    <xs:attribute name="points_won_from_last_10" type="xs:integer"/>
+    <xs:attribute name="return_errors" type="xs:integer"/>
+    <xs:attribute name="return_errors_unforced" type="xs:integer"/>
+    <xs:attribute name="return_winners" type="xs:integer"/>
+    <xs:attribute name="returns_played" type="xs:integer"/>
+    <xs:attribute name="second_serve_points_won" type="xs:integer"/>
+    <xs:attribute name="second_serve_successful" type="xs:integer"/>
+    <xs:attribute name="service_games_won" type="xs:integer"/>
+    <xs:attribute name="service_points_lost" type="xs:integer"/>
+    <xs:attribute name="service_points_won" type="xs:integer"/>
+    <xs:attribute name="tiebreaks_won" type="xs:integer"/>
+    <xs:attribute name="total_breakpoints" type="xs:integer"/>
+    <xs:attribute name="volley_unforced_errors" type="xs:integer"/>
+    <xs:attribute name="volley_winners" type="xs:integer"/>
+  </xs:complexType>
+  <xs:complexType name="CompetitorStatisticsCompetitorsType">
+    <xs:sequence>
+      <xs:element type="CompetitorStatisticsType" name="competitor" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SportEventStatisticsPeriodsType">
+    <xs:sequence>
+      <xs:element type="SportEventStatisticsPeriodType" name="period" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SportEventStatisticsTotalsType">
+    <xs:all>
+      <xs:element type="CompetitorStatisticsCompetitorsType" name="competitors" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+  <xs:complexType name="CompetitorVersusSummariesEndpointType">
+    <xs:all>
+      <xs:element type="competitorsType" name="competitors" minOccurs="0"/>
+      <xs:element type="last_meetingsType" name="last_meetings" minOccurs="0"/>
+      <xs:element type="next_meetingsType" name="next_meetings" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="last_meetingsType">
+    <xs:sequence>
+      <xs:element type="summaryType" name="summary" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="next_meetingsType">
+    <xs:sequence>
+      <xs:element type="summaryType" name="summary" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="CompetitorItfMappingsType">
+    <xs:sequence>
+      <xs:element type="mappingType" name="mapping" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="mappingType">
+    <xs:attribute name="external_id" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="CompetitorMergeMappingsEndpointType">
+    <xs:sequence>
+      <xs:element type="MergeMappingType" name="mapping" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="MergeMappingType">
+    <xs:attribute name="merged_id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="retained_id" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="ComplexesEndpointType">
+    <xs:sequence>
+      <xs:element type="complexType" name="complex" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="complexType">
+    <xs:all>
+      <xs:element type="venuesType" name="venues" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="venuesType">
+    <xs:sequence>
+      <xs:element type="venueType" name="venue" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="DoubleRaceRankingsEndpointType">
+    <xs:sequence>
+      <xs:element type="RankingsType" name="ranking" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="RankingsType">
+    <xs:all>
+      <xs:element type="competitor_rankingsType" name="competitor_rankings" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="gender" type="xs:string"/>
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="type_id" type="xs:integer"/>
+    <xs:attribute name="week" type="xs:integer"/>
+    <xs:attribute name="year" type="xs:integer"/>
+  </xs:complexType>
+  <xs:complexType name="DoubleRankingsEndpointType">
+    <xs:sequence>
+      <xs:element type="RankingsType" name="ranking" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="RaceRankingsEndpointType">
+    <xs:sequence>
+      <xs:element type="SingleRankingsType" name="ranking" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SingleRankingsType">
+    <xs:all>
+      <xs:element type="competitor_rankingsType" name="competitor_rankings" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="gender" type="xs:string"/>
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="type_id" type="xs:integer"/>
+    <xs:attribute name="week" type="xs:integer"/>
+    <xs:attribute name="year" type="xs:integer"/>
+  </xs:complexType>
+  <xs:complexType name="RankingEndpointType">
+    <xs:sequence>
+      <xs:element type="SingleRankingsType" name="ranking" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="ScheduleSummariesEndpointType">
+    <xs:sequence>
+      <xs:element type="summaryType" name="summary" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="ScheduleLiveSummariesEndpointType">
+    <xs:sequence>
+      <xs:element type="summaryType" name="summary" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="ScheduleLiveTimelinesEndpointType">
+    <xs:sequence>
+      <xs:element type="SportEventWithTimelineType" name="sport_event_timeline" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SportEventWithTimelineType">
+    <xs:all>
+      <xs:element type="sport_event_statusType" name="sport_event_status" minOccurs="0"/>
+      <xs:element type="timelineType" name="timeline" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="id" type="xs:string"/>
+    <xs:attribute name="start_time" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="eventType">
+    <xs:attribute name="away_score" type="xs:integer"/>
+    <xs:attribute name="competitor" type="xs:string"/>
+    <xs:attribute name="first_serve_fault" type="xs:boolean"/>
+    <xs:attribute name="home_score" type="xs:integer"/>
+    <xs:attribute name="id" type="xs:integer" use="required"/>
+    <xs:attribute name="period" type="xs:string"/>
+    <xs:attribute name="period_name" type="xs:string"/>
+    <xs:attribute name="reason" type="xs:string"/>
+    <xs:attribute name="result" type="xs:string"/>
+    <xs:attribute name="server" type="xs:string"/>
+    <xs:attribute name="time" type="xs:string" use="required"/>
+    <xs:attribute name="type" type="xs:string" use="required"/>
+    <xs:attribute name="updated" type="xs:boolean"/>
+    <xs:attribute name="updated_time" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="timelineType">
+    <xs:sequence>
+      <xs:element type="eventType" name="event" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SeasonsEndpointType">
+    <xs:sequence>
+      <xs:element type="seasonType" name="season" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonCompetitorsEndpointType">
+    <xs:sequence>
+      <xs:element type="SeasonCompetitorWithPlayersType" name="competitor" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonCompetitorWithPlayersType">
+    <xs:all>
+      <xs:element type="DoubleCompetitorPlayersType" name="players" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="abbreviation" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="short_name" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonInfoEndpointType">
+    <xs:all>
+      <xs:element type="CoverageType" name="coverage" minOccurs="0"/>
+      <xs:element type="SeasonExtendedType" name="season" minOccurs="0"/>
+      <xs:element type="stagesType" name="stages" minOccurs="0"/>
+      <xs:element type="winner_last_seasonType" name="winner_last_season" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonExtendedType">
+    <xs:all>
+      <xs:element type="categoryType" name="category" minOccurs="0"/>
+      <xs:element type="competitionType" name="competition" minOccurs="0"/>
+      <xs:element type="infoType" name="info" minOccurs="0"/>
+      <xs:element type="sportType" name="sport" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="competition_id" type="xs:string" use="required"/>
+    <xs:attribute name="disabled" type="xs:boolean"/>
+    <xs:attribute name="end_date" type="xs:string" use="required"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="start_date" type="xs:string" use="required"/>
+    <xs:attribute name="year" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonStageType">
+    <xs:all>
+      <xs:element type="SeasonStageGroupsType" name="groups" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="end_date" type="xs:string"/>
+    <xs:attribute name="order" type="xs:integer" use="required"/>
+    <xs:attribute name="phase" type="xs:string" use="required"/>
+    <xs:attribute name="start_date" type="xs:string"/>
+    <xs:attribute name="type" type="xs:string" use="required"/>
+    <xs:attribute name="year" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonStageGroupType">
+    <xs:all>
+      <xs:element type="SeasonStageGroupCompetitorsType" name="competitors" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="group_name" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="max_rounds" type="xs:integer"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonStageCompetitorType">
+    <xs:all>
+      <xs:element type="DoubleCompetitorPlayersType" name="players" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="abbreviation" type="xs:string"/>
+    <xs:attribute name="bracket_number" type="xs:integer"/>
+    <xs:attribute name="country" type="xs:string"/>
+    <xs:attribute name="country_code" type="xs:string"/>
+    <xs:attribute name="gender" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="qualification_path" type="xs:string"/>
+    <xs:attribute name="qualifier" type="xs:string"/>
+    <xs:attribute name="seed" type="xs:integer"/>
+    <xs:attribute name="virtual" type="xs:boolean"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonStageGroupCompetitorsType">
+    <xs:sequence>
+      <xs:element type="SeasonStageCompetitorType" name="competitor" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SeasonStageGroupsType">
+    <xs:sequence>
+      <xs:element type="SeasonStageGroupType" name="group" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="stagesType">
+    <xs:sequence>
+      <xs:element type="SeasonStageType" name="stage" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="winner_last_seasonType">
+    <xs:all>
+      <xs:element type="CompetitorType" name="competitor" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+  <xs:complexType name="SeasonsProbabilitiesEndpointType">
+    <xs:sequence>
+      <xs:element type="sport_event_probabilityType" name="sport_event_probability" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="sport_event_probabilityType">
+    <xs:all>
+      <xs:element type="marketsType" name="markets" minOccurs="0"/>
+      <xs:element type="sport_eventType" name="sport_event" minOccurs="0"/>
+      <xs:element type="sport_event_statusType" name="sport_event_status" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+  <xs:complexType name="ProbabilityMarketTwoThreeWayType">
+    <xs:all>
+      <xs:element type="outcomesType" name="outcomes" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="away_score" type="xs:integer"/>
+    <xs:attribute name="home_score" type="xs:integer"/>
+    <xs:attribute name="last_updated" type="xs:string"/>
+    <xs:attribute name="live" type="xs:boolean"/>
+    <xs:attribute name="match_time" type="xs:string"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="remaining_time" type="xs:string"/>
+    <xs:attribute name="remaining_time_in_period" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="ProbabilityOutcomeTwoThreeWayType">
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="probability" type="xs:float"/>
+  </xs:complexType>
+  <xs:complexType name="outcomesType">
+    <xs:sequence>
+      <xs:element type="ProbabilityOutcomeTwoThreeWayType" name="outcome" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="marketsType">
+    <xs:sequence>
+      <xs:element type="ProbabilityMarketTwoThreeWayType" name="market" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SeasonSimpleTeamMappingsEndpointType">
+    <xs:sequence>
+      <xs:element type="SimpleTeamMappingType" name="competitor" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SimpleTeamMappingType">
+    <xs:all>
+      <xs:element type="SimpleTeamMappingsListType" name="mappings" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="division" type="xs:integer"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="state" type="xs:string"/>
+    <xs:attribute name="virtual" type="xs:boolean"/>
+  </xs:complexType>
+  <xs:complexType name="InternalMappingType">
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SimpleTeamMappingsListType">
+    <xs:sequence>
+      <xs:element type="InternalMappingType" name="mapping" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SeasonSimpleTournamentMappingsEndpointType">
+    <xs:sequence>
+      <xs:element type="SimpleTournamentMappingType" name="competition" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SimpleTournamentMappingType">
+    <xs:all>
+      <xs:element type="SimpleTournamentGroupMappingsListType" name="groups" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="alternative_name" type="xs:string"/>
+    <xs:attribute name="gender" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="level" type="xs:string"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="parent_id" type="xs:string"/>
+    <xs:attribute name="type" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonStageGroupSimpleType">
+    <xs:all>
+      <xs:element type="SeasonStageGroupMappingsType" name="mappings" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonStageGroupMappingsType">
+    <xs:sequence>
+      <xs:element type="InternalMappingType" name="mapping" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SimpleTournamentGroupMappingsListType">
+    <xs:sequence>
+      <xs:element type="SeasonStageGroupSimpleType" name="group" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SeasonBracketsEndpointType">
+    <xs:all>
+      <xs:element type="SeasonBracketsStagesType" name="stages" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonBracketsStageType">
+    <xs:all>
+      <xs:element type="SeasonBracketsGroupsType" name="groups" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="end_date" type="xs:string"/>
+    <xs:attribute name="order" type="xs:integer"/>
+    <xs:attribute name="phase" type="xs:string" use="required"/>
+    <xs:attribute name="start_date" type="xs:string"/>
+    <xs:attribute name="type" type="xs:string" use="required"/>
+    <xs:attribute name="year" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonBracketsGroupType">
+    <xs:all>
+      <xs:element type="SeasonBracketsCupRoundsType" name="cup_rounds" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="group_name" type="xs:string" use="required"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="order" type="xs:integer"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonBracketsCupRoundType">
+    <xs:all>
+      <xs:element type="SeasonBracketsCupRoundLinkedCupRoundsType" name="linked_cup_rounds" minOccurs="0"/>
+      <xs:element type="SeasonBracketsCupRoundSportEventsType" name="sport_events" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="order" type="xs:integer"/>
+    <xs:attribute name="state" type="xs:string"/>
+    <xs:attribute name="winner_id" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonBracketsCupRoundLinkedType">
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="name" type="xs:string"/>
+    <xs:attribute name="order" type="xs:integer"/>
+    <xs:attribute name="state" type="xs:string"/>
+    <xs:attribute name="type" type="xs:string" use="required"/>
+    <xs:attribute name="winner_id" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonBracketsCupRoundLinkedCupRoundsType">
+    <xs:sequence>
+      <xs:element type="SeasonBracketsCupRoundLinkedType" name="cup_round" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SeasonBracketsCupRoundSportEventsSportEventType">
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="order" type="xs:integer"/>
+    <xs:attribute name="replaced_by" type="xs:string"/>
+    <xs:attribute name="resume_time" type="xs:string"/>
+    <xs:attribute name="start_time" type="xs:string" use="required"/>
+    <xs:attribute name="start_time_confirmed" type="xs:boolean" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonBracketsCupRoundSportEventsType">
+    <xs:sequence>
+      <xs:element type="SeasonBracketsCupRoundSportEventsSportEventType" name="sport_event" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SeasonBracketsCupRoundsType">
+    <xs:sequence>
+      <xs:element type="SeasonBracketsCupRoundType" name="cup_round" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SeasonBracketsGroupsType">
+    <xs:sequence>
+      <xs:element type="SeasonBracketsGroupType" name="group" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SeasonBracketsStagesType">
+    <xs:sequence>
+      <xs:element type="SeasonBracketsStageType" name="stage" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SeasonStandingsEndpointType">
+    <xs:sequence>
+      <xs:element type="SeasonStandingType" name="season_standing" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SeasonStandingType">
+    <xs:all>
+      <xs:element type="StandingGroupsType" name="groups" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="round" type="xs:integer"/>
+    <xs:attribute name="tie_break_rule" type="xs:string"/>
+    <xs:attribute name="type" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="StandingGroupType">
+    <xs:all>
+      <xs:element type="StandingGroupCommentsType" name="comments" minOccurs="0"/>
+      <xs:element type="SportEventContextStageType" name="stage" minOccurs="0"/>
+      <xs:element type="StandingGroupStandingsType" name="standings" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="group_name" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string" use="required"/>
+    <xs:attribute name="live" type="xs:boolean"/>
+    <xs:attribute name="name" type="xs:string" use="required"/>
+    <xs:attribute name="parent_group_id" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="commentType">
+    <xs:attribute name="text" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="StandingGroupCommentsType">
+    <xs:sequence>
+      <xs:element type="commentType" name="comment" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="CompetitorStandingType">
+    <xs:all>
+      <xs:element type="StandingGroupCommentsType" name="comments" minOccurs="0"/>
+      <xs:element type="CompetitorType" name="competitor" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="current_outcome" type="xs:string"/>
+    <xs:attribute name="loss" type="xs:integer"/>
+    <xs:attribute name="played" type="xs:integer"/>
+    <xs:attribute name="points" type="xs:integer"/>
+    <xs:attribute name="rank" type="xs:integer"/>
+    <xs:attribute name="sets_lost" type="xs:integer"/>
+    <xs:attribute name="sets_won" type="xs:integer"/>
+    <xs:attribute name="win" type="xs:integer"/>
+  </xs:complexType>
+  <xs:complexType name="StandingGroupStandingsType">
+    <xs:sequence>
+      <xs:element type="CompetitorStandingType" name="standing" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="StandingGroupsType">
+    <xs:sequence>
+      <xs:element type="StandingGroupType" name="group" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:complexType name="SeasonSummariesEndpointType">
+    <xs:sequence>
+      <xs:element type="summaryType" name="summary" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SportEventSummaryEndpointType">
+    <xs:all>
+      <xs:element type="sport_eventType" name="sport_event" minOccurs="0"/>
+      <xs:element type="sport_event_statusType" name="sport_event_status" minOccurs="0"/>
+      <xs:element type="SportEventStatisticsType" name="statistics" minOccurs="0"/>
+    </xs:all>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SportEventTimelineEndpointType">
+    <xs:sequence>
+      <xs:element type="sport_eventType" name="sport_event" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element type="sport_event_statusType" name="sport_event_status" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element type="SportEventStatisticsType" name="statistics" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element type="timelineType" name="timeline" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SportEventsCreatedEndpointType">
+    <xs:sequence>
+      <xs:element type="sport_event_createdType" name="sport_event_created" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="sport_event_createdType">
+    <xs:attribute name="active_season" type="xs:boolean"/>
+    <xs:attribute name="created_at" type="xs:string"/>
+    <xs:attribute name="id" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SportEventsRemovedEndpointType">
+    <xs:sequence>
+      <xs:element type="sport_event_removedType" name="sport_event_removed" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="sport_event_removedType">
+    <xs:attribute name="id" type="xs:string"/>
+    <xs:attribute name="replaced_by" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="SportEventsUpdatedEndpointType">
+    <xs:sequence>
+      <xs:element type="sport_event_updatedType" name="sport_event_updated" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="generated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="sport_event_updatedType">
+    <xs:attribute name="id" type="xs:string"/>
+    <xs:attribute name="updated_at" type="xs:string"/>
+  </xs:complexType>
+  <xs:complexType name="RootStreamEventsType">
+    <xs:all>
+      <xs:element type="metadataType" name="metadata" minOccurs="0"/>
+      <xs:element type="PayloadStreamEventsType" name="payload" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+  <xs:complexType name="metadataType">
+    <xs:attribute name="channel" type="xs:string"/>
+    <xs:attribute name="competition_id" type="xs:string" use="required"/>
+    <xs:attribute name="event_id" type="xs:string" use="required"/>
+    <xs:attribute name="format" type="xs:string" use="required"/>
+    <xs:attribute name="season_id" type="xs:string" use="required"/>
+    <xs:attribute name="sport_event_id" type="xs:string" use="required"/>
+    <xs:attribute name="sport_id" type="xs:string" use="required"/>
+  </xs:complexType>
+  <xs:complexType name="PayloadStreamEventsType">
+    <xs:all>
+      <xs:element type="eventType" name="event" minOccurs="0"/>
+      <xs:element type="sport_event_statusType" name="sport_event_status" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+  <xs:complexType name="RootStreamStatisticsType">
+    <xs:all>
+      <xs:element type="metadataType" name="metadata" minOccurs="0"/>
+      <xs:element type="PayloadStreamStatisticsType" name="payload" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+  <xs:complexType name="PayloadStreamStatisticsType">
+    <xs:all>
+      <xs:element type="sport_event_statusType" name="sport_event_status" minOccurs="0"/>
+      <xs:element type="StreamPayloadStatisticsType" name="statistics" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+  <xs:complexType name="StreamPayloadStatisticsType">
+    <xs:all>
+      <xs:element type="CompetitorStatisticsCompetitorsType" name="competitors" minOccurs="0"/>
+    </xs:all>
+  </xs:complexType>
+</xs:schema>

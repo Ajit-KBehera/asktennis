@@ -8,7 +8,7 @@ class TennisQueryHandler {
       apiKey: process.env.GROQ_API_KEY
     });
     
-    // Tennis-specific query patterns and responses
+    // Tennis-specific query patterns and responses - Enhanced with XSD data
     this.queryPatterns = {
       playerStats: /(?:who|which player|what player).*(?:most|highest|best|top).*(?:aces|wins|titles|rankings?|points?)/i,
       headToHead: /(?:head.?to.?head|record|against|vs|versus).*(?:djokovic|nadal|federer|murray|serena|venus|sharapova)/i,
@@ -21,7 +21,23 @@ class TennisQueryHandler {
       tournamentInfo: /(?:tournament|competition|event).*(?:happening|upcoming|current|schedule)/i,
       countryQueries: /(?:players from|tennis players in|from country|nationality)/i,
       ageQueries: /(?:youngest|oldest|age|born|birth)/i,
-      prizeMoney: /(?:prize money|earnings|salary|income|wealthy|richest)/i
+      prizeMoney: /(?:prize money|earnings|salary|income|wealthy|richest)/i,
+      
+      // New patterns based on XSD data structures
+      playerProfile: /(?:handedness|playing hand|height|weight|pro year|turned pro|career high|highest ranking)/i,
+      competitionInfo: /(?:competition|tournament).*(?:info|details|information|status|surface|prize money|venue)/i,
+      seasonData: /(?:season|year).*(?:standings|competitors|summaries|results)/i,
+      liveMatches: /(?:live|current|ongoing|happening now|in progress).*(?:match|game|event)/i,
+      scheduleQueries: /(?:schedule|upcoming|next|today|tomorrow).*(?:match|game|event|tournament)/i,
+      venueQueries: /(?:venue|stadium|court|location|where).*(?:match|tournament|event)/i,
+      raceRankings: /(?:race.*ranking|year.*to.*date|ytd|season.*ranking)/i,
+      doubleRankings: /(?:doubles|double.*ranking|pair|team).*(?:ranking|rank)/i,
+      matchStatistics: /(?:match.*stat|game.*stat|detailed.*stat|serve.*stat|return.*stat)/i,
+      timelineQueries: /(?:timeline|events|points|game.*by.*game|set.*by.*set)/i,
+      competitorHistory: /(?:match.*history|previous.*matches|past.*results|career.*record)/i,
+      versusRecords: /(?:head.*to.*head|h2h|versus|against).*(?:record|history|matches)/i,
+      complexQueries: /(?:complex|venue.*complex|stadium.*complex|tennis.*center)/i,
+      sportEventQueries: /(?:sport.*event|match.*event|game.*event).*(?:summary|details|info)/i
     };
 
     // No global timeouts in original demo mode
@@ -521,10 +537,12 @@ class TennisQueryHandler {
         return [];
       }
       
-      // Check for specific player queries
+      // Check for specific player queries with enhanced data
       if (lowerQuestion.includes('jannik') || lowerQuestion.includes('sinner')) {
         const result = await database.query(`
-          SELECT name, country, current_ranking, tour, birth_date, height, weight, playing_hand, turned_pro, career_prize_money
+          SELECT name, country, country_code, current_ranking, tour, birth_date, height, weight, 
+                 playing_hand, handedness, turned_pro, pro_year, career_prize_money,
+                 highest_singles_ranking, highest_singles_ranking_date, gender, abbreviation, nationality
           FROM players 
           WHERE name ILIKE '%sinner%' OR name ILIKE '%jannik%'
           AND tour = 'ATP'
@@ -570,15 +588,93 @@ class TennisQueryHandler {
         return result.rows;
       }
       
+      // Enhanced queries for new XSD data structures
+      
+      // Competition/Tournament info queries
+      if (lowerQuestion.includes('competition') || lowerQuestion.includes('tournament')) {
+        const result = await database.query(`
+          SELECT c.name, c.type, c.level, c.gender, ci.surface, ci.prize_money, ci.number_of_competitors
+          FROM competitions c
+          LEFT JOIN competition_info ci ON c.id = ci.competition_id
+          ORDER BY c.name
+          LIMIT 10
+        `);
+        return result.rows;
+      }
+      
+      // Season data queries
+      if (lowerQuestion.includes('season') || lowerQuestion.includes('year')) {
+        const result = await database.query(`
+          SELECT s.name, s.year, s.start_date, s.end_date, c.name as competition_name
+          FROM seasons s
+          JOIN competitions c ON s.competition_id = c.id
+          ORDER BY s.year DESC, s.start_date DESC
+          LIMIT 10
+        `);
+        return result.rows;
+      }
+      
+      // Venue queries
+      if (lowerQuestion.includes('venue') || lowerQuestion.includes('stadium') || lowerQuestion.includes('court')) {
+        const result = await database.query(`
+          SELECT name, city_name, country_name, country_code, capacity, timezone
+          FROM venues
+          ORDER BY name
+          LIMIT 10
+        `);
+        return result.rows;
+      }
+      
+      // Race rankings queries
+      if (lowerQuestion.includes('race') || lowerQuestion.includes('year to date') || lowerQuestion.includes('ytd')) {
+        const result = await database.query(`
+          SELECT p.name, rr.ranking, rr.points, rr.year, rr.week
+          FROM race_rankings rr
+          JOIN players p ON rr.player_id = p.id
+          WHERE rr.year = EXTRACT(YEAR FROM CURRENT_DATE)
+          ORDER BY rr.ranking
+          LIMIT 10
+        `);
+        return result.rows;
+      }
+      
+      // Double rankings queries
+      if (lowerQuestion.includes('doubles') || lowerQuestion.includes('double')) {
+        const result = await database.query(`
+          SELECT p1.name as player1, p2.name as player2, dr.ranking, dr.points, dr.year
+          FROM double_rankings dr
+          JOIN players p1 ON dr.player1_id = p1.id
+          JOIN players p2 ON dr.player2_id = p2.id
+          WHERE dr.year = EXTRACT(YEAR FROM CURRENT_DATE)
+          ORDER BY dr.ranking
+          LIMIT 10
+        `);
+        return result.rows;
+      }
+      
+      // Sport events queries
+      if (lowerQuestion.includes('live') || lowerQuestion.includes('current') || lowerQuestion.includes('ongoing')) {
+        const result = await database.query(`
+          SELECT se.id, se.start_time, ses.status, ses.match_status, ses.home_score, ses.away_score
+          FROM sport_events se
+          LEFT JOIN sport_event_status ses ON se.id = ses.sport_event_id
+          WHERE se.start_time >= CURRENT_DATE - INTERVAL '1 day'
+          AND se.start_time <= CURRENT_DATE + INTERVAL '7 days'
+          ORDER BY se.start_time
+          LIMIT 10
+        `);
+        return result.rows;
+      }
+      
       // Country-based queries
       if (lowerQuestion.includes('from') || lowerQuestion.includes('country')) {
         const countryMatch = lowerQuestion.match(/(?:from|in|country)\s+([a-z]+)/i);
         if (countryMatch) {
           const country = countryMatch[1].toUpperCase();
           const result = await database.query(`
-            SELECT name, country, current_ranking, tour
+            SELECT name, country, country_code, current_ranking, tour, nationality
             FROM players 
-            WHERE country = $1 AND current_ranking > 0
+            WHERE (country = $1 OR country_code = $1) AND current_ranking > 0
             ORDER BY current_ranking 
             LIMIT 10
           `, [country]);
