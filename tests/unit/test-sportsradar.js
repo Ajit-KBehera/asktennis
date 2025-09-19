@@ -6,9 +6,9 @@
  */
 
 require('dotenv').config();
-const sportsradar = require('./src/sportsradar');
-const dataSync = require('./src/dataSync');
-const database = require('./src/database');
+const sportsradar = require('../../src/sportsradar');
+const dataSync = require('../../src/dataSync');
+const database = require('../../src/database');
 
 async function testSportsradarIntegration() {
   console.log('🧪 Testing Sportsradar Integration');

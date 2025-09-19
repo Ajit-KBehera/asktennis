@@ -5,15 +5,15 @@
  * Tests all the new XSD-based features and data structures
  */
 
-const sportsradar = require('./src/sportsradar');
-const database = require('./src/database');
-const dataSync = require('./src/dataSync');
+const sportsradar = require('../../src/sportsradar');
+const database = require('../../src/database');
+const dataSync = require('../../src/dataSync');
 
 // Only require queryHandler if Groq API key is available
 let queryHandler = null;
 try {
   if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'your_groq_api_key_here') {
-    queryHandler = require('./src/queryHandler');
+    queryHandler = require('../../src/queryHandler');
   }
 } catch (error) {
   console.log('⚠️  Groq API key not configured, skipping query handler tests');
