@@ -135,7 +135,7 @@ const QueryInput: React.FC<QueryInputProps> = ({ onQuery, isLoading }) => {
                   <span className="visually-hidden">Loading...</span>
                 </div>
               ) : (
-                <i className="bi bi-arrow-right text-white" style={{ fontSize: '16px' }}></i>
+                <i className="bi bi-search text-white" style={{ fontSize: '16px' }}></i>
               )}
             </Button>
           </div>
