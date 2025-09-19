@@ -428,7 +428,8 @@ class TennisQueryHandler {
     const isNumberOne = /\bnumber\s*one\b|\b#1\b|\brank\s*1\b/i.test(question);
     
     if (isNumberOne) {
-      return `SELECT p.name, r.ranking, r.points, r.ranking_date 
+      return `SELECT p.name, r.ranking, r.points, 
+                     TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date 
               FROM rankings r 
               JOIN players p ON r.player_id = p.id 
               WHERE r.ranking = 1 
@@ -438,7 +439,8 @@ class TennisQueryHandler {
     
     if (isTopRanking) {
       const topNumber = question.match(/top\s*(\d+)/i)?.[1] || 5;
-      return `SELECT p.name, r.ranking, r.points, r.ranking_date 
+      return `SELECT p.name, r.ranking, r.points, 
+                     TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date 
               FROM rankings r 
               JOIN players p ON r.player_id = p.id 
               WHERE r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
@@ -448,7 +450,8 @@ class TennisQueryHandler {
     
     if (hasMultipleRankings) {
       const rankings = rankingNumbers.map(num => parseInt(num)).sort((a, b) => a - b);
-      return `SELECT p.name, r.ranking, r.points, r.ranking_date 
+      return `SELECT p.name, r.ranking, r.points, 
+                     TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date 
               FROM rankings r 
               JOIN players p ON r.player_id = p.id 
               WHERE r.ranking IN (${rankings.join(', ')}) 
@@ -458,7 +461,8 @@ class TennisQueryHandler {
     
     if (hasSpecificRanking) {
       const ranking = parseInt(rankingNumbers[0]);
-      return `SELECT p.name, r.ranking, r.points, r.ranking_date 
+      return `SELECT p.name, r.ranking, r.points, 
+                     TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date 
               FROM rankings r 
               JOIN players p ON r.player_id = p.id 
               WHERE r.ranking = ${ranking} 
@@ -963,7 +967,8 @@ class TennisQueryHandler {
       
       if (isNumberOne) {
         const result = await database.query(`
-          SELECT p.name, r.ranking, r.points, r.ranking_date, p.country
+          SELECT p.name, r.ranking, r.points, 
+                 TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date, p.country
           FROM rankings r 
           JOIN players p ON r.player_id = p.id 
           WHERE r.ranking = 1 
@@ -976,7 +981,8 @@ class TennisQueryHandler {
       if (isTopQuery) {
         const topNumber = lowerQuestion.match(/top\s*(\d+)/i)?.[1] || 5;
         const result = await database.query(`
-          SELECT p.name, r.ranking, r.points, r.ranking_date, p.country
+          SELECT p.name, r.ranking, r.points, 
+                 TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date, p.country
           FROM rankings r 
           JOIN players p ON r.player_id = p.id 
           WHERE r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
@@ -989,7 +995,8 @@ class TennisQueryHandler {
       if (rankingNumbers.length > 0) {
         const rankings = rankingNumbers.map(num => parseInt(num)).sort((a, b) => a - b);
         const result = await database.query(`
-          SELECT p.name, r.ranking, r.points, r.ranking_date, p.country
+          SELECT p.name, r.ranking, r.points, 
+                 TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date, p.country
           FROM rankings r 
           JOIN players p ON r.player_id = p.id 
           WHERE r.ranking IN (${rankings.join(', ')}) 
@@ -1001,7 +1008,8 @@ class TennisQueryHandler {
       
       // General ranking query
       const result = await database.query(`
-        SELECT p.name, r.ranking, r.points, r.ranking_date, p.country
+        SELECT p.name, r.ranking, r.points, 
+               TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date, p.country
         FROM rankings r 
         JOIN players p ON r.player_id = p.id 
         WHERE r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
