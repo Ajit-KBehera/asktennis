@@ -12,6 +12,7 @@ interface QueryResult {
   data: any;
   cached: boolean;
   timestamp: string;
+  queryType?: string;
 }
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
