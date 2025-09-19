@@ -29,8 +29,8 @@ const QueryInput: React.FC<QueryInputProps> = ({ onQuery, isLoading }) => {
     <div>
       <Form onSubmit={handleSubmit}>
         <div className="text-center mb-4">
-          <h2 className="h3 fw-bold text-dark mb-3">Ask a tennis question</h2>
-          <p className="text-muted">Get instant answers about players, tournaments, and statistics</p>
+          <h2 className="h3 fw-bold text-white mb-3">Ask a tennis question</h2>
+          <p className="text-white-50">Get instant answers about players, tournaments, and statistics</p>
         </div>
         
         <InputGroup className="mb-3" size="lg">
@@ -44,9 +44,12 @@ const QueryInput: React.FC<QueryInputProps> = ({ onQuery, isLoading }) => {
             disabled={isLoading}
             style={{
               borderRadius: '15px 0 0 15px',
-              border: '2px solid #e9ecef',
+              border: '2px solid rgba(255, 255, 255, 0.3)',
               fontSize: '1.1rem',
-              resize: 'none'
+              resize: 'none',
+              background: 'rgba(255, 255, 255, 0.9)',
+              color: '#333',
+              backdropFilter: 'blur(10px)'
             }}
           />
           <Button
@@ -57,9 +60,12 @@ const QueryInput: React.FC<QueryInputProps> = ({ onQuery, isLoading }) => {
             style={{
               borderRadius: '0 15px 15px 0',
               minWidth: '120px',
-              background: 'linear-gradient(45deg, #28a745, #20c997)',
-              border: 'none',
-              fontWeight: '600'
+              background: 'linear-gradient(45deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))',
+              border: '2px solid rgba(255, 255, 255, 0.3)',
+              fontWeight: '600',
+              color: 'white',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)'
             }}
           >
             {isLoading ? (
@@ -79,7 +85,7 @@ const QueryInput: React.FC<QueryInputProps> = ({ onQuery, isLoading }) => {
         </InputGroup>
         
         <div className="text-center">
-          <small className="text-muted">
+          <small className="text-white-50">
             Press Enter to submit, Shift+Enter for new line
           </small>
         </div>

@@ -155,7 +155,13 @@ function App() {
           <div className="row justify-content-center">
             <div className="col-12 col-lg-8 col-xl-6">
               {/* Input Card */}
-              <div className="card shadow-lg border-0" style={{borderRadius: '20px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)'}}>
+              <div className="card shadow-lg border-0" style={{
+                borderRadius: '20px', 
+                background: 'rgba(255, 255, 255, 0.1)', 
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+              }}>
                 <div className="card-body p-5">
                   <QueryInput onQuery={handleQuery} isLoading={isLoading} />
                 </div>
@@ -171,14 +177,20 @@ function App() {
               {/* Response Display */}
               {currentResponse && !isLoading && (
                 <div className="mt-4">
-                  <div className="card shadow-lg border-0" style={{borderRadius: '20px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)'}}>
+                  <div className="card shadow-lg border-0" style={{
+                    borderRadius: '20px', 
+                    background: 'rgba(255, 255, 255, 0.1)', 
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+                  }}>
                     <div className="card-body p-4">
                       <div className="d-flex justify-content-between align-items-center mb-3">
-                        <h5 className="card-title mb-0 text-primary">
+                        <h5 className="card-title mb-0 text-white">
                           <i className="bi bi-chat-dots me-2"></i>
                           Your Question
                         </h5>
-                        <small className="text-muted">
+                        <small className="text-white-50">
                           {new Date(currentResponse.timestamp).toLocaleTimeString()}
                         </small>
                       </div>
@@ -186,7 +198,7 @@ function App() {
                         <p className="mb-0 fw-medium">{currentResponse.question}</p>
                       </div>
                       
-                      <h6 className="text-success mb-3">
+                      <h6 className="text-white mb-3">
                         <i className="bi bi-lightbulb me-2"></i>
                         Answer
                       </h6>
@@ -197,7 +209,7 @@ function App() {
                       {/* Data Display */}
                       {currentResponse.data && currentResponse.data.length > 0 && (
                         <div>
-                          <h6 className="text-info mb-3">
+                          <h6 className="text-white mb-3">
                             <i className="bi bi-table me-2"></i>
                             Data
                           </h6>
