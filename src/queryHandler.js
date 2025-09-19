@@ -414,32 +414,128 @@ class TennisQueryHandler {
     }
   }
 
+  validateSQLQuery(sqlQuery) {
+    try {
+      // Clean the SQL query first
+      let cleanSQL = sqlQuery.trim();
+      
+      // Remove markdown code blocks
+      if (cleanSQL.startsWith('```sql')) {
+        cleanSQL = cleanSQL.replace(/^```sql\s*/, '').replace(/\s*```$/, '');
+      }
+      if (cleanSQL.startsWith('```')) {
+        cleanSQL = cleanSQL.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      // Basic SQL validation rules
+      const validationRules = [
+        {
+          name: 'Must start with SELECT',
+          test: () => cleanSQL.toUpperCase().startsWith('SELECT'),
+          error: 'Query must start with SELECT'
+        },
+        {
+          name: 'No dangerous keywords',
+          test: () => {
+            const dangerousKeywords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'CREATE', 'TRUNCATE'];
+            const upperSQL = cleanSQL.toUpperCase();
+            return !dangerousKeywords.some(keyword => upperSQL.includes(keyword));
+          },
+          error: 'Query contains dangerous keywords (DROP, DELETE, UPDATE, etc.)'
+        },
+        {
+          name: 'Must have FROM clause',
+          test: () => cleanSQL.toUpperCase().includes('FROM'),
+          error: 'Query must contain FROM clause'
+        },
+        {
+          name: 'No semicolon injection',
+          test: () => {
+            const semicolonCount = (cleanSQL.match(/;/g) || []).length;
+            return semicolonCount <= 1; // Allow one semicolon at the end
+          },
+          error: 'Query contains multiple semicolons (potential injection)'
+        },
+        {
+          name: 'Valid table references',
+          test: () => {
+            const validTables = ['players', 'rankings', 'tournaments', 'matches', 'match_stats'];
+            const upperSQL = cleanSQL.toUpperCase();
+            // Check if query references only valid tables
+            const tableMatches = upperSQL.match(/FROM\s+(\w+)/g) || [];
+            return tableMatches.every(match => {
+              const tableName = match.replace(/FROM\s+/i, '').toLowerCase();
+              return validTables.includes(tableName);
+            });
+          },
+          error: 'Query references invalid tables'
+        },
+        {
+          name: 'No suspicious patterns',
+          test: () => {
+            const suspiciousPatterns = [
+              /--/,  // SQL comments
+              /\/\*.*\*\//,  // Block comments
+              /UNION/i,  // UNION attacks
+              /OR\s+1\s*=\s*1/i,  // SQL injection patterns
+              /AND\s+1\s*=\s*1/i
+            ];
+            return !suspiciousPatterns.some(pattern => pattern.test(cleanSQL));
+          },
+          error: 'Query contains suspicious patterns'
+        }
+      ];
+      
+      // Run all validation rules
+      for (const rule of validationRules) {
+        if (!rule.test()) {
+          console.log(`❌ SQL Validation Failed: ${rule.name} - ${rule.error}`);
+          return {
+            isValid: false,
+            error: rule.error,
+            cleanSQL: cleanSQL
+          };
+        }
+      }
+      
+      console.log('✅ SQL Query validation passed');
+      return {
+        isValid: true,
+        cleanSQL: cleanSQL
+      };
+      
+    } catch (error) {
+      console.error('SQL validation error:', error);
+      return {
+        isValid: false,
+        error: 'SQL validation failed due to parsing error',
+        cleanSQL: sqlQuery
+      };
+    }
+  }
+
   async executeQuery(sqlQuery) {
+    // Validate SQL query before execution
+    const validation = this.validateSQLQuery(sqlQuery);
+    if (!validation.isValid) {
+      throw new Error(`Invalid SQL query: ${validation.error}`);
+    }
+    
+    // Use the cleaned SQL (already validated and cleaned)
+    sqlQuery = validation.cleanSQL;
+    
     // Ensure database is connected
     if (!database.pool) {
       console.log('🔄 Connecting to database...');
       await database.connect();
     }
     
-    // Clean the SQL query - remove markdown formatting
-    let cleanSQL = sqlQuery.trim();
-    
-    // Remove markdown code blocks
-    if (cleanSQL.startsWith('```sql')) {
-      cleanSQL = cleanSQL.replace(/^```sql\s*/, '').replace(/\s*```$/, '');
-    } else if (cleanSQL.startsWith('```')) {
-      cleanSQL = cleanSQL.replace(/^```\s*/, '').replace(/\s*```$/, '');
-    }
-    
-    // Remove any remaining markdown formatting
-    cleanSQL = cleanSQL.replace(/^```.*$/gm, '').trim();
-    
     // Add query timeout and optimization hints
     const startTime = Date.now();
-    console.log('Executing SQL:', cleanSQL);
+    console.log('Executing SQL:', sqlQuery);
     
     try {
-      const result = await database.query(cleanSQL);
+      const result = await database.query(sqlQuery);
       const endTime = Date.now();
       console.log(`SQL query completed in ${endTime - startTime}ms, returned ${result.rows.length} rows`);
       return result.rows;
@@ -588,9 +684,299 @@ class TennisQueryHandler {
   }
 
   /**
-   * Query database directly without AI (for when Groq API is not available)
+   * Enhanced fallback query processing with better pattern matching and error handling
    */
   async queryDatabaseDirectly(question) {
+    try {
+      console.log('🔄 Using enhanced fallback query processing...');
+      
+      // Ensure database is connected
+      if (!database.pool) {
+        console.log('🔄 Connecting to database...');
+        await database.connect();
+      }
+      
+      const lowerQuestion = question.toLowerCase();
+      
+      // Enhanced pattern matching with priority order
+      const queryPatterns = [
+        {
+          name: 'ranking_queries',
+          patterns: [/ranking|rank|number\s*\d+|top\s*\d+|#\d+/i],
+          handler: () => this.handleRankingQueries(lowerQuestion)
+        },
+        {
+          name: 'player_queries',
+          patterns: [/jannik|sinner|alcaraz|carlos|djokovic|novak|nadal|federer|murray/i],
+          handler: () => this.handlePlayerQueries(lowerQuestion)
+        },
+        {
+          name: 'tournament_queries',
+          patterns: [/tournament|competition|grand slam|wimbledon|us open|french open|australian open/i],
+          handler: () => this.handleTournamentQueries(lowerQuestion)
+        },
+        {
+          name: 'venue_queries',
+          patterns: [/venue|stadium|court|location|where/i],
+          handler: () => this.handleVenueQueries(lowerQuestion)
+        },
+        {
+          name: 'live_queries',
+          patterns: [/live|current|ongoing|happening|now|today/i],
+          handler: () => this.handleLiveQueries(lowerQuestion)
+        },
+        {
+          name: 'country_queries',
+          patterns: [/from|country|nationality|spanish|italian|serbian|american/i],
+          handler: () => this.handleCountryQueries(lowerQuestion)
+        },
+        {
+          name: 'general_queries',
+          patterns: [/.*/], // Catch-all pattern
+          handler: () => this.handleGeneralQueries(lowerQuestion)
+        }
+      ];
+      
+      // Try each pattern in order
+      for (const pattern of queryPatterns) {
+        if (pattern.patterns.some(p => p.test(question))) {
+          console.log(`🎯 Matched pattern: ${pattern.name}`);
+          const result = await pattern.handler();
+          if (result && result.length > 0) {
+            return result;
+          }
+        }
+      }
+      
+      // If no patterns matched or returned data, return empty
+      return [];
+      
+    } catch (error) {
+      console.error('❌ Enhanced fallback query failed:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Handle ranking-related queries with enhanced logic
+   */
+  async handleRankingQueries(lowerQuestion) {
+    try {
+      // Extract ranking numbers from question
+      const rankingNumbers = lowerQuestion.match(/\b(\d+)\b/g) || [];
+      const isTopQuery = /top\s*(\d+)/i.test(lowerQuestion);
+      const isNumberOne = /number\s*one|#1|rank\s*1/i.test(lowerQuestion);
+      
+      if (isNumberOne) {
+        const result = await database.query(`
+          SELECT p.name, r.ranking, r.points, r.ranking_date, p.country
+          FROM rankings r 
+          JOIN players p ON r.player_id = p.id 
+          WHERE r.ranking = 1 
+          AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
+          LIMIT 1
+        `);
+        return result.rows;
+      }
+      
+      if (isTopQuery) {
+        const topNumber = lowerQuestion.match(/top\s*(\d+)/i)?.[1] || 5;
+        const result = await database.query(`
+          SELECT p.name, r.ranking, r.points, r.ranking_date, p.country
+          FROM rankings r 
+          JOIN players p ON r.player_id = p.id 
+          WHERE r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
+          ORDER BY r.ranking 
+          LIMIT ${parseInt(topNumber)}
+        `);
+        return result.rows;
+      }
+      
+      if (rankingNumbers.length > 0) {
+        const rankings = rankingNumbers.map(num => parseInt(num)).sort((a, b) => a - b);
+        const result = await database.query(`
+          SELECT p.name, r.ranking, r.points, r.ranking_date, p.country
+          FROM rankings r 
+          JOIN players p ON r.player_id = p.id 
+          WHERE r.ranking IN (${rankings.join(', ')}) 
+          AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
+          ORDER BY r.ranking
+        `);
+        return result.rows;
+      }
+      
+      // General ranking query
+      const result = await database.query(`
+        SELECT p.name, r.ranking, r.points, r.ranking_date, p.country
+        FROM rankings r 
+        JOIN players p ON r.player_id = p.id 
+        WHERE r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
+        ORDER BY r.ranking 
+        LIMIT 10
+      `);
+      return result.rows;
+      
+    } catch (error) {
+      console.error('Ranking query error:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Handle player-specific queries with enhanced data
+   */
+  async handlePlayerQueries(lowerQuestion) {
+    try {
+      // Extract player name from question
+      const playerNames = ['jannik', 'sinner', 'alcaraz', 'carlos', 'djokovic', 'novak', 'nadal', 'federer', 'murray'];
+      const matchedPlayer = playerNames.find(name => lowerQuestion.includes(name));
+      
+      if (matchedPlayer) {
+        let searchPattern = '';
+        switch (matchedPlayer) {
+          case 'jannik':
+          case 'sinner':
+            searchPattern = '%sinner%';
+            break;
+          case 'alcaraz':
+          case 'carlos':
+            searchPattern = '%alcaraz%';
+            break;
+          case 'djokovic':
+          case 'novak':
+            searchPattern = '%djokovic%';
+            break;
+          case 'nadal':
+            searchPattern = '%nadal%';
+            break;
+          case 'federer':
+            searchPattern = '%federer%';
+            break;
+          case 'murray':
+            searchPattern = '%murray%';
+            break;
+        }
+        
+        const result = await database.query(`
+          SELECT p.name, p.country, p.country_code, p.current_ranking, p.tour, p.birth_date, 
+                 p.height, p.weight, p.playing_hand, p.handedness, p.turned_pro, p.pro_year, 
+                 p.career_prize_money, p.highest_singles_ranking, p.highest_singles_ranking_date, 
+                 p.gender, p.abbreviation, p.nationality,
+                 r.ranking, r.points, r.ranking_date
+          FROM players p
+          LEFT JOIN rankings r ON p.id = r.player_id 
+            AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings)
+          WHERE p.name ILIKE $1
+          AND p.tour = 'ATP'
+          ORDER BY p.current_ranking ASC
+          LIMIT 1
+        `, [searchPattern]);
+        return result.rows;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Player query error:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Handle tournament and competition queries
+   */
+  async handleTournamentQueries(lowerQuestion) {
+    try {
+      // For now, return empty as we don't have tournament results
+      // This could be enhanced when tournament data is available
+      return [];
+    } catch (error) {
+      console.error('Tournament query error:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Handle venue and location queries
+   */
+  async handleVenueQueries(lowerQuestion) {
+    try {
+      const result = await database.query(`
+        SELECT name, city_name, country_name, country_code, capacity, timezone
+        FROM venues
+        ORDER BY name
+        LIMIT 10
+      `);
+      return result.rows;
+    } catch (error) {
+      console.error('Venue query error:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Handle live and current event queries
+   */
+  async handleLiveQueries(lowerQuestion) {
+    try {
+      const result = await database.query(`
+        SELECT se.id, se.start_time, ses.status, ses.match_status, ses.home_score, ses.away_score
+        FROM sport_events se
+        LEFT JOIN sport_event_status ses ON se.id = ses.sport_event_id
+        WHERE se.start_time >= CURRENT_DATE - INTERVAL '1 day'
+        AND se.start_time <= CURRENT_DATE + INTERVAL '7 days'
+        ORDER BY se.start_time
+        LIMIT 10
+      `);
+      return result.rows;
+    } catch (error) {
+      console.error('Live query error:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Handle country and nationality queries
+   */
+  async handleCountryQueries(lowerQuestion) {
+    try {
+      const result = await database.query(`
+        SELECT name, country, country_code, current_ranking, tour
+        FROM players 
+        WHERE current_ranking > 0 
+        ORDER BY current_ranking 
+        LIMIT 20
+      `);
+      return result.rows;
+    } catch (error) {
+      console.error('Country query error:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Handle general queries as fallback
+   */
+  async handleGeneralQueries(lowerQuestion) {
+    try {
+      // Return top players as general fallback
+      const result = await database.query(`
+        SELECT p.name, p.country, p.current_ranking, p.tour
+        FROM players p
+        WHERE p.current_ranking > 0 
+        ORDER BY p.current_ranking 
+        LIMIT 10
+      `);
+      return result.rows;
+    } catch (error) {
+      console.error('General query error:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   */
+  async queryDatabaseDirectlyLegacy(question) {
     try {
       // Ensure database is connected
       if (!database.pool) {
