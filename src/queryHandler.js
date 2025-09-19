@@ -285,8 +285,67 @@ class TennisQueryHandler {
     }
   }
 
+  generateRankingQueryTemplate(question, analysis) {
+    // Extract ranking numbers from the question
+    const rankingNumbers = question.match(/\b(\d+)\b/g) || [];
+    const hasMultipleRankings = rankingNumbers.length > 1;
+    const hasSpecificRanking = rankingNumbers.length === 1;
+    const isTopRanking = /top\s*(\d+)/i.test(question);
+    const isNumberOne = /number\s*one|#1|rank\s*1/i.test(question);
+    
+    if (isNumberOne) {
+      return `SELECT p.name, r.ranking, r.points, r.ranking_date 
+              FROM rankings r 
+              JOIN players p ON r.player_id = p.id 
+              WHERE r.ranking = 1 
+              AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
+              LIMIT 1`;
+    }
+    
+    if (isTopRanking) {
+      const topNumber = question.match(/top\s*(\d+)/i)?.[1] || 5;
+      return `SELECT p.name, r.ranking, r.points, r.ranking_date 
+              FROM rankings r 
+              JOIN players p ON r.player_id = p.id 
+              WHERE r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
+              ORDER BY r.ranking 
+              LIMIT ${topNumber}`;
+    }
+    
+    if (hasMultipleRankings) {
+      const rankings = rankingNumbers.map(num => parseInt(num)).sort((a, b) => a - b);
+      return `SELECT p.name, r.ranking, r.points, r.ranking_date 
+              FROM rankings r 
+              JOIN players p ON r.player_id = p.id 
+              WHERE r.ranking IN (${rankings.join(', ')}) 
+              AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
+              ORDER BY r.ranking`;
+    }
+    
+    if (hasSpecificRanking) {
+      const ranking = parseInt(rankingNumbers[0]);
+      return `SELECT p.name, r.ranking, r.points, r.ranking_date 
+              FROM rankings r 
+              JOIN players p ON r.player_id = p.id 
+              WHERE r.ranking = ${ranking} 
+              AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
+              LIMIT 1`;
+    }
+    
+    return null; // No template match
+  }
+
   async generateSQLQuery(question, analysis) {
     try {
+      // Check if this is a ranking query and use template if available
+      if (analysis.type === 'rankingQueries') {
+        const templateQuery = this.generateRankingQueryTemplate(question, analysis);
+        if (templateQuery) {
+          console.log('Using ranking query template:', templateQuery);
+          return templateQuery;
+        }
+      }
+      
       const prompt = `
         Generate a PostgreSQL query for this tennis question:
         
@@ -301,6 +360,19 @@ class TennisQueryHandler {
         - rankings (id, player_id, ranking, points, ranking_date, tour)
         
         IMPORTANT: Use exact column names as shown above. Do NOT use 'turneds_pro' - use 'turned_pro'.
+        
+        RANKING QUERY EXAMPLES:
+        - For "who is number 1": SELECT p.name, r.ranking, r.points FROM rankings r JOIN players p ON r.player_id = p.id WHERE r.ranking = 1 AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) LIMIT 1
+        - For "who are number 2 and 4": SELECT p.name, r.ranking, r.points FROM rankings r JOIN players p ON r.player_id = p.id WHERE r.ranking IN (2, 4) AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) ORDER BY r.ranking
+        - For "current top 5": SELECT p.name, r.ranking, r.points FROM rankings r JOIN players p ON r.player_id = p.id WHERE r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) ORDER BY r.ranking LIMIT 5
+        - For "who is ranked higher": Use subqueries to compare rankings
+        
+        CRITICAL RANKING RULES:
+        1. ALWAYS use the most recent ranking_date: WHERE r.ranking_date = (SELECT MAX(ranking_date) FROM rankings)
+        2. For specific rankings (like "number 2"): WHERE r.ranking = 2
+        3. For multiple rankings (like "2 and 4"): WHERE r.ranking IN (2, 4)
+        4. NEVER use JOINs between players for ranking queries - use single table with WHERE clauses
+        5. ALWAYS JOIN rankings with players: FROM rankings r JOIN players p ON r.player_id = p.id
         
         Return ONLY the SQL query, no explanations, no markdown formatting, no code blocks.
         Use proper JOINs and aggregations as needed.
