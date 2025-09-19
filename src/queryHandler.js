@@ -2,6 +2,87 @@ const Groq = require('groq-sdk');
 const database = require('./database');
 const dataSync = require('./dataSync');
 
+// Initialize database connection once at startup
+let dbInitialized = false;
+async function initializeDatabase() {
+  if (!dbInitialized) {
+    try {
+      await database.connect(true); // Initialize schema on first connection
+      dbInitialized = true;
+      console.log('🚀 Database initialized for query processing');
+    } catch (error) {
+      console.error('❌ Failed to initialize database:', error.message);
+    }
+  }
+}
+
+// Intelligent caching system for frequent queries
+class QueryCache {
+  constructor() {
+    this.cache = new Map();
+    this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
+    this.maxCacheSize = 100;
+  }
+
+  generateCacheKey(question, queryType) {
+    // Normalize question for consistent caching
+    const normalized = question.toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return `${queryType}:${normalized}`;
+  }
+
+  get(question, queryType) {
+    const key = this.generateCacheKey(question, queryType);
+    const cached = this.cache.get(key);
+    
+    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+      console.log('🎯 Cache HIT for:', question.substring(0, 50) + '...');
+      return cached.data;
+    }
+    
+    if (cached) {
+      this.cache.delete(key); // Remove expired cache
+    }
+    
+    return null;
+  }
+
+  set(question, queryType, data) {
+    const key = this.generateCacheKey(question, queryType);
+    
+    // Implement LRU eviction if cache is full
+    if (this.cache.size >= this.maxCacheSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+    
+    this.cache.set(key, {
+      data: data,
+      timestamp: Date.now()
+    });
+    
+    console.log('💾 Cache SET for:', question.substring(0, 50) + '...');
+  }
+
+  clear() {
+    this.cache.clear();
+    console.log('🗑️ Cache cleared');
+  }
+
+  getStats() {
+    return {
+      size: this.cache.size,
+      maxSize: this.maxCacheSize,
+      timeout: this.cacheTimeout
+    };
+  }
+}
+
+// Global cache instance
+const queryCache = new QueryCache();
+
 class TennisQueryHandler {
   constructor() {
     this.groq = new Groq({
@@ -43,10 +124,44 @@ class TennisQueryHandler {
     // No global timeouts in original demo mode
   }
 
+  detectQueryType(question) {
+    const lowerQuestion = question.toLowerCase();
+    
+    // Detect query type for caching
+    if (lowerQuestion.includes('number 1') || lowerQuestion.includes('number one') || lowerQuestion.includes('#1')) {
+      return 'number_one';
+    }
+    if (lowerQuestion.includes('top 5') || lowerQuestion.includes('top 10')) {
+      return 'top_players';
+    }
+    if (lowerQuestion.includes('ranking') || lowerQuestion.includes('rank')) {
+      return 'ranking';
+    }
+    if (lowerQuestion.includes('sinner') || lowerQuestion.includes('alcaraz') || lowerQuestion.includes('djokovic')) {
+      return 'player_info';
+    }
+    
+    return 'general';
+  }
+
   async processQuery(question, userId = null) {
     const runCore = async () => {
       try {
       console.log(`Processing query: "${question}"`);
+      
+      // Initialize database connection once
+      await initializeDatabase();
+      
+      // Check cache first for common queries
+      const cacheKey = this.detectQueryType(question);
+      const cachedResult = queryCache.get(question, cacheKey);
+      if (cachedResult) {
+        return {
+          ...cachedResult,
+          fromCache: true,
+          cacheStats: queryCache.getStats()
+        };
+      }
       
       // Check if Groq API key is configured
       console.log('API Key check:', {
@@ -417,16 +532,16 @@ class TennisQueryHandler {
   validateSQLQuery(sqlQuery) {
     try {
       // Clean the SQL query first
-      let cleanSQL = sqlQuery.trim();
-      
-      // Remove markdown code blocks
-      if (cleanSQL.startsWith('```sql')) {
-        cleanSQL = cleanSQL.replace(/^```sql\s*/, '').replace(/\s*```$/, '');
+    let cleanSQL = sqlQuery.trim();
+    
+    // Remove markdown code blocks
+    if (cleanSQL.startsWith('```sql')) {
+      cleanSQL = cleanSQL.replace(/^```sql\s*/, '').replace(/\s*```$/, '');
       }
       if (cleanSQL.startsWith('```')) {
-        cleanSQL = cleanSQL.replace(/^```\s*/, '').replace(/\s*```$/, '');
-      }
-      
+      cleanSQL = cleanSQL.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    
       // Basic SQL validation rules
       const validationRules = [
         {
@@ -524,10 +639,10 @@ class TennisQueryHandler {
     // Use the cleaned SQL (already validated and cleaned)
     sqlQuery = validation.cleanSQL;
     
-    // Ensure database is connected
+    // Ensure database is connected (optimized - reuse existing connections)
     if (!database.pool) {
       console.log('🔄 Connecting to database...');
-      await database.connect();
+      await database.connect(false); // Don't re-initialize schema
     }
     
     // Add query timeout and optimization hints
@@ -690,10 +805,10 @@ class TennisQueryHandler {
     try {
       console.log('🔄 Using enhanced fallback query processing...');
       
-      // Ensure database is connected
+      // Ensure database is connected (optimized)
       if (!database.pool) {
         console.log('🔄 Connecting to database...');
-        await database.connect();
+        await database.connect(false); // Don't re-initialize schema
       }
       
       const lowerQuestion = question.toLowerCase();
@@ -978,10 +1093,10 @@ class TennisQueryHandler {
    */
   async queryDatabaseDirectlyLegacy(question) {
     try {
-      // Ensure database is connected
+      // Ensure database is connected (optimized)
       if (!database.pool) {
         console.log('🔄 Connecting to database...');
-        await database.connect();
+        await database.connect(false); // Don't re-initialize schema
       }
       
       const lowerQuestion = question.toLowerCase();

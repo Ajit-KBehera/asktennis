@@ -5,8 +5,21 @@ class Database {
     this.pool = null;
   }
 
-  async connect() {
+  async connect(initializeSchema = true) {
     try {
+      // If pool already exists and is healthy, reuse it
+      if (this.pool && !this.pool.ended) {
+        try {
+          const client = await this.pool.connect();
+          client.release();
+          console.log('✅ Database connection reused');
+          return;
+        } catch (error) {
+          console.log('🔄 Existing connection unhealthy, creating new pool...');
+          this.pool = null;
+        }
+      }
+
       // Use DATABASE_URL if available (Railway), otherwise fall back to individual variables
       const config = process.env.DATABASE_URL 
         ? {
@@ -34,8 +47,10 @@ class Database {
       console.log('✅ Database connected successfully');
       client.release();
       
-      // Initialize database schema
-      await this.initializeSchema();
+      // Initialize database schema only if requested (first time or forced)
+      if (initializeSchema) {
+        await this.initializeSchema();
+      }
       
     } catch (error) {
       console.error('❌ Database connection failed:', error);
