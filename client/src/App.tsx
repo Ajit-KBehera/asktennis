@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
 import QueryInput from './components/QueryInput';
 import LoadingSpinner from './components/LoadingSpinner';
-import Header from './components/Header';
-import Footer from './components/Footer';
 
 interface QueryResult {
   question: string;
@@ -16,7 +16,6 @@ interface QueryResult {
 const API_BASE_URL = process.env.REACT_APP_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 
 function App() {
-  const [queryHistory, setQueryHistory] = useState<QueryResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Debug logging
@@ -43,7 +42,7 @@ function App() {
       
       const result: QueryResult = response.data;
       console.log('Processed result:', result);
-      setQueryHistory(prev => [result, ...prev]);
+      // Query result handled - could be displayed in a modal or separate page
       
     } catch (error: any) {
       console.error('Query error:', error);
@@ -69,7 +68,7 @@ function App() {
         cached: false,
         timestamp: new Date().toISOString()
       };
-      setQueryHistory(prev => [mockResult, ...prev]);
+      console.log('Mock result:', mockResult);
     } finally {
       setIsLoading(false);
     }
@@ -131,64 +130,58 @@ function App() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-tennis-light to-green-50 flex flex-col">
-      <Header />
-      
-      <main className="flex-1 flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-4xl">
-          <div className="text-center mb-12">
-            <h1 className="text-6xl font-bold text-tennis-dark mb-6">
-              🎾 AskTennis
-            </h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Ask any tennis question in natural language and get precise statistical answers. 
-              From player records to tournament statistics, I've got you covered!
-            </p>
-          </div>
-
-          <div className="bg-gradient-to-br from-white to-gray-50 rounded-3xl shadow-2xl border border-gray-100 p-12 backdrop-blur-sm">
-            <QueryInput onQuery={handleQuery} isLoading={isLoading} />
-          </div>
-
-          {isLoading && (
-            <div className="flex justify-center mt-8">
-              <LoadingSpinner />
-            </div>
-          )}
-
-          {queryHistory.length === 0 && !isLoading && (
-            <div className="mt-12 text-center">
-              <div className="text-8xl mb-6">🎾</div>
-              <h3 className="text-2xl font-semibold text-tennis-dark mb-4">
-                Ready to Answer Your Tennis Questions!
-              </h3>
-              <p className="text-gray-600 mb-8 text-lg">
-                Try asking questions like:
+    <div className="min-vh-100 d-flex flex-column" style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}}>
+      {/* Modern Header */}
+      <header className="py-4">
+        <div className="container">
+          <div className="row justify-content-center">
+            <div className="col-12 text-center">
+              <h1 className="display-3 fw-bold text-white mb-0">
+                <span className="me-3">🎾</span>AskTennis
+              </h1>
+              <p className="lead text-white-50 mt-2">
+                Your AI-powered tennis statistics assistant
               </p>
-              <div className="grid md:grid-cols-2 gap-6 text-left max-w-4xl mx-auto">
-                <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-300">
-                  <p className="text-sm text-gray-600 mb-3 font-semibold">Player Statistics:</p>
-                  <p className="font-medium text-gray-800">"Who has the most aces in Grand Slam finals?"</p>
-                </div>
-                <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-300">
-                  <p className="text-sm text-gray-600 mb-3 font-semibold">Head-to-Head:</p>
-                  <p className="font-medium text-gray-800">"What is Novak Djokovic's record against Rafael Nadal?"</p>
-                </div>
-                <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-300">
-                  <p className="text-sm text-gray-600 mb-3 font-semibold">Tournament Records:</p>
-                  <p className="font-medium text-gray-800">"Who has won the most Wimbledon titles?"</p>
-                </div>
-                <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-300">
-                  <p className="text-sm text-gray-600 mb-3 font-semibold">Performance Metrics:</p>
-                  <p className="font-medium text-gray-800">"Which player has the highest first serve percentage?"</p>
+            </div>
+          </div>
+        </div>
+      </header>
+      
+      {/* Main Content */}
+      <main className="flex-grow-1 d-flex align-items-center justify-content-center py-5">
+        <div className="container">
+          <div className="row justify-content-center">
+            <div className="col-12 col-lg-8 col-xl-6">
+              {/* Input Card */}
+              <div className="card shadow-lg border-0" style={{borderRadius: '20px', background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(10px)'}}>
+                <div className="card-body p-5">
+                  <QueryInput onQuery={handleQuery} isLoading={isLoading} />
                 </div>
               </div>
+
+              {/* Loading Spinner */}
+              {isLoading && (
+                <div className="text-center mt-4">
+                  <LoadingSpinner />
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </main>
 
-      <Footer />
+      {/* Footer */}
+      <footer className="py-3">
+        <div className="container">
+          <div className="row">
+            <div className="col-12 text-center">
+              <p className="text-white-50 mb-0 small">
+                © 2025 AskTennis - Powered by AI & Sportsradar API
+              </p>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
