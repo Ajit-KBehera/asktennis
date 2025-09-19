@@ -80,7 +80,6 @@ const DataDisplay: React.FC<DataDisplayProps> = ({ data, queryType }) => {
   // Check if this is ranking data
   const isRankingData = data.some(item => item.ranking !== undefined);
   const isPlayerData = data.some(item => item.name && (item.country || item.current_ranking));
-  const isTournamentData = data.some(item => item.tournament_name || item.competition_name);
 
   // Render ranking data with special styling
   if (isRankingData) {
