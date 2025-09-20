@@ -1058,10 +1058,16 @@ class TennisQueryHandler {
       
       if (playerName) {
         // Create search patterns for the player name
-        // Try both "First Last" and "Last, First" formats
+        // Try multiple formats: "First Last", "Last, First", and just the last name
+        const nameParts = playerName.trim().split(' ');
+        const firstName = nameParts[0];
+        const lastName = nameParts[nameParts.length - 1];
+        
         const searchPatterns = [
-          `%${playerName}%`,  // "Arthur Fils"
-          `%${playerName.split(' ').reverse().join(', ')}%`  // "Fils, Arthur"
+          `%${playerName}%`,  // "Daniil Medvedev"
+          `%${nameParts.reverse().join(', ')}%`,  // "Medvedev, Daniil"
+          `%${lastName}%`,  // Just "Medvedev"
+          `%${firstName}%`   // Just "Daniil"
         ];
         
         // Try each pattern until we find a match
@@ -1082,6 +1088,27 @@ class TennisQueryHandler {
           `, [searchPattern]);
           
           if (result.rows.length > 0) {
+            // If we found a player but no ranking data, try to find ranking data for any player with similar name
+            if (!result.rows[0].ranking) {
+              const rankingResult = await database.query(`
+                SELECT p.name, p.country, p.country_code, p.current_ranking, p.tour, p.birth_date, 
+                       p.height, p.weight, p.playing_hand, p.handedness, p.turned_pro, p.pro_year, 
+                       p.career_prize_money, p.highest_singles_ranking, p.highest_singles_ranking_date, 
+                       p.gender, p.abbreviation, p.nationality,
+                       r.ranking, r.points, TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date
+                FROM players p
+                JOIN rankings r ON p.id = r.player_id 
+                  AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings)
+                WHERE p.name ILIKE $1
+                AND p.tour = 'ATP'
+                ORDER BY r.ranking ASC
+                LIMIT 1
+              `, [searchPattern]);
+              
+              if (rankingResult.rows.length > 0) {
+                return rankingResult.rows;
+              }
+            }
             return result.rows;
           }
         }
