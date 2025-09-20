@@ -295,7 +295,7 @@ class DataSyncService {
     // First try to update existing player
     const updateQuery = `
       UPDATE players 
-      SET country = $2, current_ranking = $3, tour = $4, updated_at = CURRENT_TIMESTAMP
+      SET country = $2, country_code = $2, current_ranking = $3, tour = $4, updated_at = CURRENT_TIMESTAMP
       WHERE name = $1
     `;
     
@@ -309,8 +309,8 @@ class DataSyncService {
     // If no rows were updated, insert new player
     if (updateResult.rowCount === 0) {
       const insertQuery = `
-        INSERT INTO players (name, country, current_ranking, tour, updated_at)
-        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+        INSERT INTO players (name, country, country_code, current_ranking, tour, updated_at)
+        VALUES ($1, $2, $2, $3, $4, CURRENT_TIMESTAMP)
       `;
 
       await client.query(insertQuery, [

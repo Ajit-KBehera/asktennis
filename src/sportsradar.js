@@ -318,11 +318,19 @@ class SportsradarAPI {
     }
 
     return rankingData.competitor_rankings.map((ranking) => {
+      // Handle missing country codes with intelligent mapping
+      let countryCode = ranking.competitor?.country_code;
+      
+      // If country code is missing, try to infer from player name or use known mappings
+      if (!countryCode || countryCode === 'UNK') {
+        countryCode = this.inferCountryCode(ranking.competitor?.name);
+      }
+
       return {
         ranking: ranking.rank,
         player_id: ranking.competitor?.id,
         player_name: ranking.competitor?.name || 'Unknown Player',
-        country: ranking.competitor?.country_code || 'UNK',
+        country: countryCode,
         points: ranking.points || 0,
         tour: tour,
         ranking_date: new Date().toISOString().split('T')[0],
@@ -330,6 +338,95 @@ class SportsradarAPI {
         ranking_movement: ranking.movement || 0
       };
     });
+  }
+
+  /**
+   * Infer country code from player name when API data is missing
+   */
+  inferCountryCode(playerName) {
+    if (!playerName) return 'UNK';
+
+    const name = playerName.toLowerCase();
+    
+    // Known Russian players mapping (exact matches)
+    const russianPlayers = [
+      'medvedev', 'khachanov', 'rublev', 'safiullin', 'kachmazov', 
+      'simakin', 'karatsev', 'sharipov', 'gakhov', 'kotov', 'kukushkin',
+      'donskoy', 'kravchuk', 'kuznetsov', 'mukhin', 'shevchenko'
+    ];
+    
+    // Check if player name contains any known Russian player names
+    for (const russianPlayer of russianPlayers) {
+      if (name.includes(russianPlayer)) {
+        return 'RUS';
+      }
+    }
+    
+    // Known Serbian players
+    const serbianPlayers = ['djokovic', 'kecmanovic', 'lajovic', 'krajinovic'];
+    for (const serbianPlayer of serbianPlayers) {
+      if (name.includes(serbianPlayer)) {
+        return 'SRB';
+      }
+    }
+    
+    // Known Spanish players
+    const spanishPlayers = ['alcaraz', 'nadal', 'bautista', 'ramos', 'carreno'];
+    for (const spanishPlayer of spanishPlayers) {
+      if (name.includes(spanishPlayer)) {
+        return 'ESP';
+      }
+    }
+    
+    // Known Italian players
+    const italianPlayers = ['sinner', 'musetti', 'berrettini', 'fognini'];
+    for (const italianPlayer of italianPlayers) {
+      if (name.includes(italianPlayer)) {
+        return 'ITA';
+      }
+    }
+    
+    // Additional country mappings based on common surname patterns
+    const countryMappings = {
+      // Russian names (more specific patterns first)
+      'ovich': 'RUS',
+      'evich': 'RUS',
+      'sky': 'RUS',
+      'ov': 'RUS',
+      'ev': 'RUS', 
+      'in': 'RUS',
+      'ich': 'RUS',
+      
+      // Serbian names
+      'ovic': 'SRB',
+      'ic': 'SRB',
+      
+      // Spanish names
+      'ez': 'ESP',
+      'az': 'ESP',
+      
+      // French names
+      'eau': 'FRA',
+      'ier': 'FRA',
+      
+      // Italian names
+      'ini': 'ITA',
+      'oni': 'ITA',
+      
+      // German names (more specific patterns)
+      'mann': 'DEU',
+      'berg': 'DEU',
+      'er': 'DEU'
+    };
+    
+    // Check for name patterns (order matters - more specific first)
+    for (const [pattern, country] of Object.entries(countryMappings)) {
+      if (name.endsWith(pattern)) {
+        return country;
+      }
+    }
+    
+    return 'UNK';
   }
 
   /**
