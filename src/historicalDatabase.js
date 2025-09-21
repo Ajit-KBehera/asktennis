@@ -84,8 +84,37 @@ class HistoricalDatabase {
           round VARCHAR(50),
           player1 VARCHAR(200),
           player2 VARCHAR(200),
-          winner VARCHAR(200),
-          score VARCHAR(100),
+          player1_hand VARCHAR(5),
+          player2_hand VARCHAR(5),
+          time VARCHAR(20),
+          court VARCHAR(100),
+          umpire VARCHAR(200),
+          best_of INTEGER,
+          final_tb BOOLEAN DEFAULT FALSE,
+          charted_by VARCHAR(100),
+          data_source VARCHAR(50) DEFAULT 'github_charting',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
+      // Match charting points table
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS match_charting_points (
+          id SERIAL PRIMARY KEY,
+          match_id VARCHAR(100),
+          point_number INTEGER,
+          set1_score VARCHAR(10),
+          set2_score VARCHAR(10),
+          game1_score VARCHAR(10),
+          game2_score VARCHAR(10),
+          point_score VARCHAR(20),
+          game_number INTEGER,
+          tiebreak_set BOOLEAN DEFAULT FALSE,
+          server INTEGER,
+          first_serve TEXT,
+          second_serve TEXT,
+          notes TEXT,
+          point_winner INTEGER,
           data_source VARCHAR(50) DEFAULT 'github_charting',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -172,6 +201,22 @@ class HistoricalDatabase {
       await this.pool.query(`
         CREATE INDEX IF NOT EXISTS idx_historical_players_name 
         ON historical_players(name, tour)
+      `);
+
+      // Match charting indexes
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_match_charting_tournament 
+        ON match_charting(tournament, date, round)
+      `);
+      
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_match_charting_players 
+        ON match_charting(player1, player2, date)
+      `);
+      
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_match_charting_points_match 
+        ON match_charting_points(match_id, point_number)
       `);
 
       // Grand Slam indexes
@@ -389,8 +434,9 @@ class HistoricalDatabase {
         for (const match of chartingData) {
           await client.query(`
             INSERT INTO match_charting 
-            (match_id, tournament, date, surface, round, player1, player2, winner, score, data_source)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            (match_id, tournament, date, surface, round, player1, player2, player1_hand, player2_hand, 
+             time, court, umpire, best_of, final_tb, charted_by, data_source)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
             ON CONFLICT (match_id) 
             DO UPDATE SET 
               tournament = EXCLUDED.tournament,
@@ -399,8 +445,14 @@ class HistoricalDatabase {
               round = EXCLUDED.round,
               player1 = EXCLUDED.player1,
               player2 = EXCLUDED.player2,
-              winner = EXCLUDED.winner,
-              score = EXCLUDED.score
+              player1_hand = EXCLUDED.player1_hand,
+              player2_hand = EXCLUDED.player2_hand,
+              time = EXCLUDED.time,
+              court = EXCLUDED.court,
+              umpire = EXCLUDED.umpire,
+              best_of = EXCLUDED.best_of,
+              final_tb = EXCLUDED.final_tb,
+              charted_by = EXCLUDED.charted_by
           `, [
             match.match_id,
             match.tournament,
@@ -409,8 +461,14 @@ class HistoricalDatabase {
             match.round,
             match.player1,
             match.player2,
-            match.winner,
-            match.score,
+            match.player1_hand,
+            match.player2_hand,
+            match.time,
+            match.court,
+            match.umpire,
+            match.best_of,
+            match.final_tb,
+            match.charted_by,
             match.data_source
           ]);
         }
@@ -425,6 +483,63 @@ class HistoricalDatabase {
       }
     } catch (error) {
       console.error('❌ Failed to insert match charting data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Insert match charting points data
+   */
+  async insertMatchChartingPoints(pointsData) {
+    try {
+      if (!pointsData || pointsData.length === 0) {
+        console.log('⚠️  No charting points data to insert');
+        return;
+      }
+
+      console.log(`🔄 Inserting ${pointsData.length} match charting points...`);
+
+      const client = await this.pool.connect();
+      
+      try {
+        await client.query('BEGIN');
+
+        for (const point of pointsData) {
+          await client.query(`
+            INSERT INTO match_charting_points 
+            (match_id, point_number, set1_score, set2_score, game1_score, game2_score, 
+             point_score, game_number, tiebreak_set, server, first_serve, second_serve, 
+             notes, point_winner, data_source)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          `, [
+            point.match_id,
+            point.point_number,
+            point.set1_score,
+            point.set2_score,
+            point.game1_score,
+            point.game2_score,
+            point.point_score,
+            point.game_number,
+            point.tiebreak_set,
+            point.server,
+            point.first_serve,
+            point.second_serve,
+            point.notes,
+            point.point_winner,
+            point.data_source
+          ]);
+        }
+
+        await client.query('COMMIT');
+        console.log(`✅ Successfully inserted ${pointsData.length} match charting points`);
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      console.error('❌ Failed to insert match charting points:', error);
       throw error;
     }
   }
@@ -583,6 +698,148 @@ class HistoricalDatabase {
   }
 
   /**
+   * Get match charting data for a specific match
+   */
+  async getMatchChartingData(matchId) {
+    try {
+      const result = await this.pool.query(`
+        SELECT 
+          mc.match_id,
+          mc.tournament,
+          mc.date,
+          mc.surface,
+          mc.round,
+          mc.player1,
+          mc.player2,
+          mc.player1_hand,
+          mc.player2_hand,
+          mc.time,
+          mc.court,
+          mc.umpire,
+          mc.best_of,
+          mc.final_tb,
+          mc.charted_by,
+          COUNT(mcp.point_number) as total_points
+        FROM match_charting mc
+        LEFT JOIN match_charting_points mcp ON mc.match_id = mcp.match_id
+        WHERE mc.match_id = $1
+        GROUP BY mc.match_id, mc.tournament, mc.date, mc.surface, mc.round, 
+                 mc.player1, mc.player2, mc.player1_hand, mc.player2_hand, 
+                 mc.time, mc.court, mc.umpire, mc.best_of, mc.final_tb, mc.charted_by
+      `, [matchId]);
+
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('❌ Failed to get match charting data:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get point-by-point data for a specific match
+   */
+  async getMatchPoints(matchId, limit = 100) {
+    try {
+      const result = await this.pool.query(`
+        SELECT 
+          point_number,
+          set1_score,
+          set2_score,
+          game1_score,
+          game2_score,
+          point_score,
+          game_number,
+          tiebreak_set,
+          server,
+          first_serve,
+          second_serve,
+          notes,
+          point_winner
+        FROM match_charting_points 
+        WHERE match_id = $1
+        ORDER BY point_number
+        LIMIT $2
+      `, [matchId, limit]);
+
+      return result.rows;
+    } catch (error) {
+      console.error('❌ Failed to get match points:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get charted matches for a player
+   */
+  async getPlayerChartedMatches(playerName, limit = 20) {
+    try {
+      const result = await this.pool.query(`
+        SELECT 
+          match_id,
+          tournament,
+          date,
+          surface,
+          round,
+          player1,
+          player2,
+          time,
+          court,
+          charted_by
+        FROM match_charting 
+        WHERE LOWER(player1) LIKE LOWER($1) OR LOWER(player2) LIKE LOWER($1)
+        ORDER BY date DESC
+        LIMIT $2
+      `, [`%${playerName}%`, limit]);
+
+      return result.rows;
+    } catch (error) {
+      console.error('❌ Failed to get player charted matches:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get charted matches for a tournament
+   */
+  async getTournamentChartedMatches(tournamentName, year = null, limit = 50) {
+    try {
+      let query = `
+        SELECT 
+          match_id,
+          tournament,
+          date,
+          surface,
+          round,
+          player1,
+          player2,
+          time,
+          court,
+          charted_by
+        FROM match_charting 
+        WHERE LOWER(tournament) LIKE LOWER($1)
+      `;
+      
+      const params = [`%${tournamentName}%`];
+      
+      if (year) {
+        query += ` AND EXTRACT(YEAR FROM date) = $2`;
+        params.push(year);
+        query += ` ORDER BY date DESC LIMIT $3`;
+        params.push(limit);
+      } else {
+        query += ` ORDER BY date DESC LIMIT $2`;
+        params.push(limit);
+      }
+
+      const result = await this.pool.query(query, params);
+      return result.rows;
+    } catch (error) {
+      console.error('❌ Failed to get tournament charted matches:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get database statistics
    */
   async getDatabaseStats() {
@@ -595,6 +852,7 @@ class HistoricalDatabase {
         'historical_matches', 
         'historical_players',
         'match_charting',
+        'match_charting_points',
         'grand_slam_matches',
         'grand_slam_points'
       ];

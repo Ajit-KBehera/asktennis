@@ -142,6 +142,32 @@ class EnhancedDataSyncService {
         await historicalDatabase.insertHistoricalMatches(allMatches);
       }
 
+      // Fetch and store match charting data (recent matches only)
+      console.log('📈 Fetching match charting data...');
+      const [menMatches, womenMatches] = await Promise.all([
+        githubDataService.fetchMatchChartingData(),
+        githubDataService.fetchWomenMatchChartingData()
+      ]);
+
+      // Store match charting data
+      const allChartedMatches = [...menMatches, ...womenMatches];
+      if (allChartedMatches.length > 0) {
+        await historicalDatabase.insertMatchCharting(allChartedMatches);
+      }
+
+      // Fetch and store recent match charting points (2020s only for now)
+      console.log('📊 Fetching match charting points...');
+      const [menPoints2020s, womenPoints2020s] = await Promise.all([
+        githubDataService.fetchMatchChartingPoints('2020s'),
+        githubDataService.fetchWomenMatchChartingPoints('2020s')
+      ]);
+
+      // Store match charting points
+      const allChartedPoints = [...menPoints2020s, ...womenPoints2020s];
+      if (allChartedPoints.length > 0) {
+        await historicalDatabase.insertMatchChartingPoints(allChartedPoints);
+      }
+
       this.lastGitHubSyncTime = new Date();
       console.log('✅ Historical data synchronization completed successfully');
       
@@ -153,7 +179,9 @@ class EnhancedDataSyncService {
           wta_rankings: wtaRankings.length,
           atp_players: atpPlayers.length,
           wta_players: wtaPlayers.length,
-          matches: allMatches.length
+          matches: allMatches.length,
+          charted_matches: allChartedMatches.length,
+          charted_points: allChartedPoints.length
         }
       };
 

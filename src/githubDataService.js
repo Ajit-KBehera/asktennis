@@ -221,13 +221,68 @@ class GitHubDataService {
       console.log('🔄 Fetching match charting data...');
       
       // Fetch match metadata
-      const matchesUrl = `${this.baseUrl}/${this.repositories.charting}/main/charting-m-matches.csv`;
+      const matchesUrl = `${this.baseUrl}/${this.repositories.charting}/master/charting-m-matches.csv`;
       const matchesData = await this.fetchAndParseCSV(matchesUrl);
       
       console.log(`✅ Fetched ${matchesData.length} charted matches`);
       return this.processMatchChartingData(matchesData);
     } catch (error) {
       console.error('❌ Failed to fetch match charting data:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch match charting points data
+   */
+  async fetchMatchChartingPoints(decade = '2020s') {
+    try {
+      console.log(`🔄 Fetching match charting points for ${decade}...`);
+      
+      const pointsUrl = `${this.baseUrl}/${this.repositories.charting}/master/charting-m-points-${decade}.csv`;
+      const pointsData = await this.fetchAndParseCSV(pointsUrl);
+      
+      console.log(`✅ Fetched ${pointsData.length} charted points for ${decade}`);
+      return this.processMatchChartingPoints(pointsData);
+    } catch (error) {
+      console.error(`❌ Failed to fetch match charting points for ${decade}:`, error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch women's match charting data
+   */
+  async fetchWomenMatchChartingData() {
+    try {
+      console.log('🔄 Fetching women\'s match charting data...');
+      
+      // Fetch match metadata
+      const matchesUrl = `${this.baseUrl}/${this.repositories.charting}/master/charting-w-matches.csv`;
+      const matchesData = await this.fetchAndParseCSV(matchesUrl);
+      
+      console.log(`✅ Fetched ${matchesData.length} women's charted matches`);
+      return this.processMatchChartingData(matchesData);
+    } catch (error) {
+      console.error('❌ Failed to fetch women\'s match charting data:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch women's match charting points data
+   */
+  async fetchWomenMatchChartingPoints(decade = '2020s') {
+    try {
+      console.log(`🔄 Fetching women's match charting points for ${decade}...`);
+      
+      const pointsUrl = `${this.baseUrl}/${this.repositories.charting}/master/charting-w-points-${decade}.csv`;
+      const pointsData = await this.fetchAndParseCSV(pointsUrl);
+      
+      console.log(`✅ Fetched ${pointsData.length} women's charted points for ${decade}`);
+      return this.processMatchChartingPoints(pointsData);
+    } catch (error) {
+      console.error(`❌ Failed to fetch women's match charting points for ${decade}:`, error.message);
       return [];
     }
   }
@@ -399,16 +454,45 @@ class GitHubDataService {
   processMatchChartingData(data) {
     return data.map(row => ({
       match_id: row.match_id,
-      tournament: row.tournament,
-      date: row.date,
-      surface: row.surface,
-      round: row.round,
-      player1: row.player1,
-      player2: row.player2,
-      winner: row.winner,
-      score: row.score,
+      tournament: row.Tournament,
+      date: row.Date,
+      surface: row.Surface,
+      round: row.Round,
+      player1: row['Player 1'],
+      player2: row['Player 2'],
+      player1_hand: row['Pl 1 hand'],
+      player2_hand: row['Pl 2 hand'],
+      time: row.Time,
+      court: row.Court,
+      umpire: row.Umpire,
+      best_of: parseInt(row['Best of']) || null,
+      final_tb: row['Final TB?'] === '1',
+      charted_by: row['Charted by'],
       data_source: 'github_charting'
     })).filter(item => item.match_id);
+  }
+
+  /**
+   * Process match charting points data
+   */
+  processMatchChartingPoints(data) {
+    return data.map(row => ({
+      match_id: row.match_id,
+      point_number: parseInt(row.Pt) || null,
+      set1_score: row.Set1,
+      set2_score: row.Set2,
+      game1_score: row.Gm1,
+      game2_score: row.Gm2,
+      point_score: row.Pts,
+      game_number: parseInt(row['Gm#']) || null,
+      tiebreak_set: row.TbSet === 'True',
+      server: parseInt(row.Svr) || null,
+      first_serve: row['1st'],
+      second_serve: row['2nd'],
+      notes: row.Notes,
+      point_winner: parseInt(row.PtWinner) || null,
+      data_source: 'github_charting'
+    })).filter(item => item.match_id && item.point_number);
   }
 
   /**

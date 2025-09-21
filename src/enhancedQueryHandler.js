@@ -633,6 +633,11 @@ class EnhancedTennisQueryHandler {
     if (this.isPlayerRankingHistoryQuestion(question)) {
       return await this.generatePlayerRankingHistoryAnswer(question);
     }
+
+    // Handle match charting questions
+    if (this.isMatchChartingQuestion(question)) {
+      return await this.generateMatchChartingAnswer(question);
+    }
     
     if (!data || data.length === 0) {
       return "I don't have historical data to answer that question right now.";
@@ -777,6 +782,90 @@ class EnhancedTennisQueryHandler {
     } catch (error) {
       console.error('Error generating ranking history answer:', error);
       return "I encountered an error while retrieving ranking history. Please try again.";
+    }
+  }
+
+  /**
+   * Check if question is about match charting
+   */
+  isMatchChartingQuestion(question) {
+    const chartingPatterns = [
+      /point.by.point/i,
+      /shot.by.shot/i,
+      /match charting/i,
+      /charted match/i,
+      /serve analysis/i,
+      /rally analysis/i,
+      /detailed match/i,
+      /match breakdown/i,
+      /serve statistics/i,
+      /return statistics/i
+    ];
+    
+    return chartingPatterns.some(pattern => pattern.test(question));
+  }
+
+  /**
+   * Generate match charting answer
+   */
+  async generateMatchChartingAnswer(question) {
+    try {
+      // Extract player names from question
+      const players = this.extractPlayerNames(question);
+      
+      if (players.length > 0) {
+        // Get charted matches for the player
+        const chartedMatches = await historicalDatabase.getPlayerChartedMatches(players[0], 10);
+        
+        if (chartedMatches.length === 0) {
+          return `I don't have detailed match charting data for ${players[0]} in my database. This could be because the match data isn't available yet.`;
+        }
+
+        let answer = `**Charted Matches for ${players[0]}:**\n\n`;
+        
+        chartedMatches.slice(0, 5).forEach(match => {
+          const date = new Date(match.date).toLocaleDateString();
+          answer += `• ${date} ${match.tournament} (${match.round}): ${match.player1} vs ${match.player2}\n`;
+          answer += `  Surface: ${match.surface}, Court: ${match.court}\n`;
+          if (match.charted_by) {
+            answer += `  Charted by: ${match.charted_by}\n`;
+          }
+          answer += `  Match ID: ${match.match_id}\n\n`;
+        });
+
+        return answer;
+      }
+
+      // Check if asking about a specific tournament
+      const tournamentKeywords = ['wimbledon', 'us open', 'french open', 'australian open', 'roland garros'];
+      const tournament = tournamentKeywords.find(t => question.toLowerCase().includes(t));
+      
+      if (tournament) {
+        const tournamentMatches = await historicalDatabase.getTournamentChartedMatches(tournament, null, 10);
+        
+        if (tournamentMatches.length === 0) {
+          return `I don't have detailed match charting data for ${tournament} in my database.`;
+        }
+
+        let answer = `**Charted Matches at ${tournament}:**\n\n`;
+        
+        tournamentMatches.slice(0, 5).forEach(match => {
+          const date = new Date(match.date).toLocaleDateString();
+          answer += `• ${date} (${match.round}): ${match.player1} vs ${match.player2}\n`;
+          answer += `  Surface: ${match.surface}, Court: ${match.court}\n`;
+          if (match.charted_by) {
+            answer += `  Charted by: ${match.charted_by}\n`;
+          }
+          answer += `  Match ID: ${match.match_id}\n\n`;
+        });
+
+        return answer;
+      }
+
+      return "I can provide detailed match charting data. Please specify a player name or tournament (e.g., 'Djokovic match charting' or 'Wimbledon charted matches').";
+    } catch (error) {
+      console.error('Error generating match charting answer:', error);
+      return "I encountered an error while retrieving match charting data. Please try again.";
     }
   }
 
