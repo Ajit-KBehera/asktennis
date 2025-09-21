@@ -23,18 +23,15 @@ class GitHubDataService {
     try {
       console.log('🔄 Fetching ATP rankings from GitHub...');
       
-      // Try different possible file names
+      // Use the correct file name we discovered
       const possibleFiles = [
-        'atp_rankings_current.csv',
-        'atp_rankings.csv',
-        'rankings_current.csv',
-        'current_rankings.csv'
+        'atp_rankings_current.csv'
       ];
       
       let data = [];
       for (const fileName of possibleFiles) {
         try {
-          const url = `${this.baseUrl}/${this.repositories.atp}/main/${fileName}`;
+          const url = `${this.baseUrl}/${this.repositories.atp}/master/${fileName}`;
           data = await this.fetchAndParseCSV(url);
           if (data.length > 0) {
             console.log(`✅ Found ATP rankings in file: ${fileName}`);
@@ -47,7 +44,14 @@ class GitHubDataService {
       }
       
       console.log(`✅ Fetched ${data.length} ATP rankings`);
-      return this.processRankingsData(data, 'ATP');
+      const processedRankings = this.processRankingsData(data, 'ATP');
+      
+      // Resolve player names
+      console.log('🔄 Resolving player names...');
+      const players = await this.fetchPlayerData('ATP');
+      const rankingsWithNames = await this.resolvePlayerNames(processedRankings, players);
+      
+      return rankingsWithNames;
     } catch (error) {
       console.error('❌ Failed to fetch ATP rankings:', error.message);
       return [];
@@ -61,18 +65,15 @@ class GitHubDataService {
     try {
       console.log('🔄 Fetching WTA rankings from GitHub...');
       
-      // Try different possible file names
+      // Use the correct file name we discovered
       const possibleFiles = [
-        'wta_rankings_current.csv',
-        'wta_rankings.csv',
-        'rankings_current.csv',
-        'current_rankings.csv'
+        'wta_rankings_current.csv'
       ];
       
       let data = [];
       for (const fileName of possibleFiles) {
         try {
-          const url = `${this.baseUrl}/${this.repositories.wta}/main/${fileName}`;
+          const url = `${this.baseUrl}/${this.repositories.wta}/master/${fileName}`;
           data = await this.fetchAndParseCSV(url);
           if (data.length > 0) {
             console.log(`✅ Found WTA rankings in file: ${fileName}`);
@@ -85,7 +86,14 @@ class GitHubDataService {
       }
       
       console.log(`✅ Fetched ${data.length} WTA rankings`);
-      return this.processRankingsData(data, 'WTA');
+      const processedRankings = this.processRankingsData(data, 'WTA');
+      
+      // Resolve player names
+      console.log('🔄 Resolving player names...');
+      const players = await this.fetchPlayerData('WTA');
+      const rankingsWithNames = await this.resolvePlayerNames(processedRankings, players);
+      
+      return rankingsWithNames;
     } catch (error) {
       console.error('❌ Failed to fetch WTA rankings:', error.message);
       return [];
@@ -93,15 +101,40 @@ class GitHubDataService {
   }
 
   /**
-   * Fetch historical rankings for a specific year
+   * Fetch historical rankings for a specific decade or year
    */
-  async fetchHistoricalRankings(tour = 'ATP', year = null) {
+  async fetchHistoricalRankings(tour = 'ATP', decade = null) {
     try {
       const repo = tour === 'ATP' ? this.repositories.atp : this.repositories.wta;
-      const fileName = year ? `atp_rankings_${year}.csv` : 'atp_rankings_current.csv';
-      const url = `${this.baseUrl}/${repo}/main/${fileName}`;
       
-      console.log(`🔄 Fetching ${tour} historical rankings for ${year || 'current'}...`);
+      // Map decade to file name based on discovered structure
+      const decadeFiles = {
+        '70s': 'atp_rankings_70s.csv',
+        '80s': 'atp_rankings_80s.csv', 
+        '90s': 'atp_rankings_90s.csv',
+        '00s': 'atp_rankings_00s.csv',
+        '10s': 'atp_rankings_10s.csv',
+        '20s': 'atp_rankings_20s.csv'
+      };
+      
+      const wtaDecadeFiles = {
+        '80s': 'wta_rankings_80s.csv',
+        '90s': 'wta_rankings_90s.csv',
+        '00s': 'wta_rankings_00s.csv',
+        '10s': 'wta_rankings_10s.csv',
+        '20s': 'wta_rankings_20s.csv'
+      };
+      
+      const fileMap = tour === 'ATP' ? decadeFiles : wtaDecadeFiles;
+      const fileName = decade ? fileMap[decade] : (tour === 'ATP' ? 'atp_rankings_current.csv' : 'wta_rankings_current.csv');
+      
+      if (!fileName) {
+        throw new Error(`No data available for ${tour} ${decade}`);
+      }
+      
+      const url = `${this.baseUrl}/${repo}/master/${fileName}`;
+      
+      console.log(`🔄 Fetching ${tour} historical rankings for ${decade || 'current'}...`);
       const data = await this.fetchAndParseCSV(url);
       
       console.log(`✅ Fetched ${data.length} ${tour} historical rankings`);
@@ -115,42 +148,47 @@ class GitHubDataService {
   /**
    * Fetch match results for a specific year
    */
-  async fetchMatchResults(tour = 'ATP', year = null) {
+  async fetchMatchResults(tour = 'ATP', year = 2024) {
     try {
       const repo = tour === 'ATP' ? this.repositories.atp : this.repositories.wta;
       
-      // Try different possible file names for match results
-      const possibleFiles = year ? [
-        `${tour.toLowerCase()}_matches_${year}.csv`,
-        `matches_${year}.csv`,
-        `${year}_matches.csv`
-      ] : [
-        `${tour.toLowerCase()}_matches_2024.csv`,
-        `${tour.toLowerCase()}_matches_2023.csv`,
-        `matches_2024.csv`,
-        `matches_2023.csv`
-      ];
+      // Use the correct file name format we discovered
+      const fileName = `${tour.toLowerCase()}_matches_${year}.csv`;
+      const url = `${this.baseUrl}/${repo}/master/${fileName}`;
       
-      let data = [];
-      for (const fileName of possibleFiles) {
+      console.log(`🔄 Fetching ${tour} match results for ${year}...`);
+      const data = await this.fetchAndParseCSV(url);
+      
+      console.log(`✅ Fetched ${data.length} ${tour} match results for ${year}`);
+      return this.processMatchResultsData(data, tour);
+    } catch (error) {
+      console.error(`❌ Failed to fetch ${tour} match results for ${year}:`, error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch multiple years of match results
+   */
+  async fetchMatchResultsRange(tour = 'ATP', startYear = 2020, endYear = 2024) {
+    try {
+      console.log(`🔄 Fetching ${tour} match results from ${startYear} to ${endYear}...`);
+      
+      const allResults = [];
+      for (let year = startYear; year <= endYear; year++) {
         try {
-          const url = `${this.baseUrl}/${repo}/main/${fileName}`;
-          console.log(`🔄 Trying to fetch ${tour} match results from: ${fileName}`);
-          data = await this.fetchAndParseCSV(url);
-          if (data.length > 0) {
-            console.log(`✅ Found ${tour} match results in file: ${fileName}`);
-            break;
-          }
+          const yearResults = await this.fetchMatchResults(tour, year);
+          allResults.push(...yearResults);
+          console.log(`✅ Added ${yearResults.length} matches from ${year}`);
         } catch (error) {
-          console.log(`⚠️  File ${fileName} not found, trying next...`);
-          continue;
+          console.log(`⚠️  Skipping ${year} due to error: ${error.message}`);
         }
       }
       
-      console.log(`✅ Fetched ${data.length} ${tour} match results`);
-      return this.processMatchResultsData(data, tour);
+      console.log(`✅ Total ${tour} match results: ${allResults.length}`);
+      return allResults;
     } catch (error) {
-      console.error(`❌ Failed to fetch ${tour} match results:`, error.message);
+      console.error(`❌ Failed to fetch ${tour} match results range:`, error.message);
       return [];
     }
   }
@@ -162,7 +200,7 @@ class GitHubDataService {
     try {
       const repo = tour === 'ATP' ? this.repositories.atp : this.repositories.wta;
       const fileName = `${tour.toLowerCase()}_players.csv`;
-      const url = `${this.baseUrl}/${repo}/main/${fileName}`;
+      const url = `${this.baseUrl}/${repo}/master/${fileName}`;
       
       console.log(`🔄 Fetching ${tour} player data...`);
       const data = await this.fetchAndParseCSV(url);
@@ -199,7 +237,16 @@ class GitHubDataService {
    */
   async fetchGrandSlamData(year = 2024, tournament = 'wimbledon') {
     try {
-      const fileName = `${year}-${tournament}-points.csv`;
+      // Map tournament names to file format
+      const tournamentMap = {
+        'wimbledon': 'wimbledon',
+        'usopen': 'usopen', 
+        'frenchopen': 'frenchopen',
+        'ausopen': 'ausopen'
+      };
+      
+      const tournamentKey = tournamentMap[tournament.toLowerCase()] || tournament;
+      const fileName = `${year}-${tournamentKey}-points.csv`;
       const url = `${this.baseUrl}/${this.repositories.slam}/main/${fileName}`;
       
       console.log(`🔄 Fetching Grand Slam data for ${tournament} ${year}...`);
@@ -209,6 +256,33 @@ class GitHubDataService {
       return this.processGrandSlamData(data, year, tournament);
     } catch (error) {
       console.error(`❌ Failed to fetch Grand Slam data:`, error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch Grand Slam match data (without points)
+   */
+  async fetchGrandSlamMatches(year = 2024, tournament = 'wimbledon') {
+    try {
+      const tournamentMap = {
+        'wimbledon': 'wimbledon',
+        'usopen': 'usopen',
+        'frenchopen': 'frenchopen', 
+        'ausopen': 'ausopen'
+      };
+      
+      const tournamentKey = tournamentMap[tournament.toLowerCase()] || tournament;
+      const fileName = `${year}-${tournamentKey}-matches.csv`;
+      const url = `${this.baseUrl}/${this.repositories.slam}/main/${fileName}`;
+      
+      console.log(`🔄 Fetching Grand Slam matches for ${tournament} ${year}...`);
+      const data = await this.fetchAndParseCSV(url);
+      
+      console.log(`✅ Fetched ${data.length} Grand Slam matches`);
+      return this.processGrandSlamMatches(data, year, tournament);
+    } catch (error) {
+      console.error(`❌ Failed to fetch Grand Slam matches:`, error.message);
       return [];
     }
   }
@@ -269,15 +343,15 @@ class GitHubDataService {
    */
   processRankingsData(data, tour) {
     return data.map(row => ({
-      player_id: row.player_id || row.player,
-      player_name: row.player_name || row.name || row.player,
-      ranking: parseInt(row.ranking) || parseInt(row.rank),
+      player_id: row.player || row.player_id,
+      player_name: row.player || row.player_id, // Will be resolved later with player names
+      ranking: parseInt(row.rank) || parseInt(row.ranking),
       points: parseInt(row.points) || 0,
       tour: tour,
       ranking_date: row.ranking_date || row.date || new Date().toISOString().split('T')[0],
       data_source: 'github',
       is_current: true
-    })).filter(item => item.player_name && item.ranking);
+    })).filter(item => item.player_id && item.ranking);
   }
 
   /**
@@ -306,17 +380,17 @@ class GitHubDataService {
    */
   processPlayerData(data, tour) {
     return data.map(row => ({
-      player_id: row.player_id || row.id,
-      name: row.name || row.player_name,
-      birth_date: row.dob || row.birth_date,
-      country: row.country || row.ioc,
+      player_id: row.player_id,
+      name: `${row.name_first} ${row.name_last}`.trim(),
+      birth_date: row.dob ? `${row.dob.slice(0,4)}-${row.dob.slice(4,6)}-${row.dob.slice(6,8)}` : null,
+      country: row.ioc,
       height: parseInt(row.height) || null,
-      weight: parseInt(row.weight) || null,
-      playing_hand: row.hand || row.playing_hand,
-      turned_pro: parseInt(row.turned_pro) || null,
+      weight: null, // Not available in this dataset
+      playing_hand: row.hand,
+      turned_pro: null, // Not available in this dataset
       tour: tour,
       data_source: 'github'
-    })).filter(item => item.name);
+    })).filter(item => item.name && item.player_id);
   }
 
   /**
@@ -355,6 +429,39 @@ class GitHubDataService {
       rally_length: parseInt(row.rally_length) || 0,
       data_source: 'github_slam'
     })).filter(item => item.point_id);
+  }
+
+  /**
+   * Process Grand Slam matches data
+   */
+  processGrandSlamMatches(data, year, tournament) {
+    return data.map(row => ({
+      match_id: row.match_id,
+      tournament: tournament,
+      year: year,
+      round: row.round,
+      player1: row.player1,
+      player2: row.player2,
+      winner: row.winner,
+      score: row.score,
+      surface: row.surface,
+      data_source: 'github_slam'
+    })).filter(item => item.match_id);
+  }
+
+  /**
+   * Resolve player names in rankings data
+   */
+  async resolvePlayerNames(rankingsData, playersData) {
+    const playerMap = new Map();
+    playersData.forEach(player => {
+      playerMap.set(player.player_id, player.name);
+    });
+
+    return rankingsData.map(ranking => ({
+      ...ranking,
+      player_name: playerMap.get(ranking.player_id) || ranking.player_id
+    }));
   }
 
   /**

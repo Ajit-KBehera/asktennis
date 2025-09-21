@@ -2,6 +2,7 @@ const sportsradar = require('./sportsradar');
 const githubDataService = require('./githubDataService');
 const dataModels = require('./dataModels');
 const database = require('./database');
+const historicalDatabase = require('./historicalDatabase');
 
 class EnhancedDataSyncService {
   constructor() {
@@ -99,23 +100,47 @@ class EnhancedDataSyncService {
     console.log('🔄 Starting historical data synchronization with GitHub...');
 
     try {
-      // Note: GitHub data fetching is disabled for now to avoid 404 errors
-      // We'll fetch GitHub data on-demand for specific historical questions
-      console.log('📝 GitHub data fetching disabled - using on-demand approach');
-      
-      // Create empty historical data structure
-      const historicalData = {
-        atp_rankings: [],
-        wta_rankings: [],
-        atp_players: [],
-        wta_players: [],
-        match_charting: [],
-        last_updated: new Date().toISOString(),
-        data_source: 'github_disabled'
-      };
+      // Initialize historical database schema
+      await historicalDatabase.initializeHistoricalSchema();
 
-      // Update database with historical data
-      await this.updateHistoricalDataInDatabase(historicalData);
+      // Fetch current rankings from GitHub (these are actually historical data)
+      console.log('📊 Fetching current rankings from GitHub...');
+      const [atpRankings, wtaRankings] = await Promise.all([
+        githubDataService.fetchATPRankings(),
+        githubDataService.fetchWTARankings()
+      ]);
+
+      // Fetch player data
+      console.log('👥 Fetching player data from GitHub...');
+      const [atpPlayers, wtaPlayers] = await Promise.all([
+        githubDataService.fetchPlayerData('ATP'),
+        githubDataService.fetchPlayerData('WTA')
+      ]);
+
+      // Store data in historical database
+      console.log('💾 Storing data in historical database...');
+      await Promise.all([
+        historicalDatabase.insertHistoricalRankings(atpRankings),
+        historicalDatabase.insertHistoricalRankings(wtaRankings),
+        historicalDatabase.insertHistoricalPlayers(atpPlayers),
+        historicalDatabase.insertHistoricalPlayers(wtaPlayers)
+      ]);
+
+      // Fetch recent match results (last 2 years)
+      console.log('🏆 Fetching recent match results...');
+      const currentYear = new Date().getFullYear();
+      const [atpMatches2024, atpMatches2023, wtaMatches2024, wtaMatches2023] = await Promise.all([
+        githubDataService.fetchMatchResults('ATP', currentYear),
+        githubDataService.fetchMatchResults('ATP', currentYear - 1),
+        githubDataService.fetchMatchResults('WTA', currentYear),
+        githubDataService.fetchMatchResults('WTA', currentYear - 1)
+      ]);
+
+      // Store match results
+      const allMatches = [...atpMatches2024, ...atpMatches2023, ...wtaMatches2024, ...wtaMatches2023];
+      if (allMatches.length > 0) {
+        await historicalDatabase.insertHistoricalMatches(allMatches);
+      }
 
       this.lastGitHubSyncTime = new Date();
       console.log('✅ Historical data synchronization completed successfully');
@@ -124,11 +149,11 @@ class EnhancedDataSyncService {
         success: true,
         lastSync: this.lastGitHubSyncTime,
         data: {
-          atp_rankings: historicalData.atp_rankings?.length || 0,
-          wta_rankings: historicalData.wta_rankings?.length || 0,
-          atp_players: historicalData.atp_players?.length || 0,
-          wta_players: historicalData.wta_players?.length || 0,
-          match_charting: historicalData.match_charting?.length || 0
+          atp_rankings: atpRankings.length,
+          wta_rankings: wtaRankings.length,
+          atp_players: atpPlayers.length,
+          wta_players: wtaPlayers.length,
+          matches: allMatches.length
         }
       };
 

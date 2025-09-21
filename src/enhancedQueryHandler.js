@@ -2,6 +2,7 @@ const Groq = require('groq-sdk');
 const database = require('./database');
 const enhancedDataSync = require('./enhancedDataSync');
 const dataModels = require('./dataModels');
+const historicalDatabase = require('./historicalDatabase');
 
 // Initialize database connection once at startup
 let dbInitialized = false;
@@ -622,6 +623,16 @@ class EnhancedTennisQueryHandler {
     if (this.queryPatterns.tournamentWinners.test(question) || this.queryPatterns.grandSlamData.test(question)) {
       return this.generateTournamentWinnerAnswer(question, data, analysis);
     }
+
+    // Handle head-to-head questions
+    if (this.isHeadToHeadQuestion(question)) {
+      return await this.generateHeadToHeadAnswer(question);
+    }
+
+    // Handle player ranking history questions
+    if (this.isPlayerRankingHistoryQuestion(question)) {
+      return await this.generatePlayerRankingHistoryAnswer(question);
+    }
     
     if (!data || data.length === 0) {
       return "I don't have historical data to answer that question right now.";
@@ -633,6 +644,161 @@ class EnhancedTennisQueryHandler {
     
     // Default historical data answer
     return `Based on historical data: ${data[0].name} was ranked #${data[0].ranking} with ${data[0].points} points.`;
+  }
+
+  /**
+   * Check if question is about head-to-head records
+   */
+  isHeadToHeadQuestion(question) {
+    const headToHeadPatterns = [
+      /head.to.head/i,
+      /h2h/i,
+      /versus/i,
+      /vs\.?/i,
+      /against/i,
+      /record against/i,
+      /matches against/i
+    ];
+    
+    return headToHeadPatterns.some(pattern => pattern.test(question));
+  }
+
+  /**
+   * Check if question is about player ranking history
+   */
+  isPlayerRankingHistoryQuestion(question) {
+    const rankingHistoryPatterns = [
+      /ranking history/i,
+      /rankings over time/i,
+      /ranking progression/i,
+      /ranking evolution/i,
+      /career ranking/i,
+      /highest ranking/i,
+      /lowest ranking/i
+    ];
+    
+    return rankingHistoryPatterns.some(pattern => pattern.test(question));
+  }
+
+  /**
+   * Generate head-to-head answer
+   */
+  async generateHeadToHeadAnswer(question) {
+    try {
+      // Extract player names from question
+      const players = this.extractPlayerNames(question);
+      if (players.length < 2) {
+        return "I need the names of two players to provide a head-to-head record. Please specify both players.";
+      }
+
+      const [player1, player2] = players;
+      
+      // Get head-to-head data from historical database
+      const h2hData = await historicalDatabase.getHeadToHead(player1, player2, 'ATP');
+      
+      if (!h2hData || h2hData.length === 0) {
+        return `I don't have head-to-head data between ${player1} and ${player2} in my database. This could be because they haven't played each other or the data isn't available yet.`;
+      }
+
+      // Calculate statistics
+      const player1Wins = h2hData.filter(match => 
+        match.winner_name.toLowerCase().includes(player1.toLowerCase())
+      ).length;
+      
+      const player2Wins = h2hData.filter(match => 
+        match.winner_name.toLowerCase().includes(player2.toLowerCase())
+      ).length;
+
+      const totalMatches = h2hData.length;
+      const recentMatches = h2hData.slice(0, 5); // Last 5 matches
+
+      let answer = `**Head-to-Head: ${player1} vs ${player2}**\n\n`;
+      answer += `**Overall Record:** ${player1} ${player1Wins} - ${player2Wins} ${player2}\n`;
+      answer += `**Total Matches:** ${totalMatches}\n\n`;
+
+      if (recentMatches.length > 0) {
+        answer += `**Recent Matches:**\n`;
+        recentMatches.forEach(match => {
+          const winner = match.winner_name;
+          const loser = match.loser_name;
+          const tournament = match.tournament_name;
+          const year = match.year;
+          const score = match.score;
+          
+          answer += `• ${year} ${tournament}: ${winner} def. ${loser} ${score}\n`;
+        });
+      }
+
+      return answer;
+    } catch (error) {
+      console.error('Error generating head-to-head answer:', error);
+      return "I encountered an error while retrieving head-to-head data. Please try again.";
+    }
+  }
+
+  /**
+   * Generate player ranking history answer
+   */
+  async generatePlayerRankingHistoryAnswer(question) {
+    try {
+      // Extract player name from question
+      const players = this.extractPlayerNames(question);
+      if (players.length === 0) {
+        return "I need a player name to provide ranking history. Please specify which player you're asking about.";
+      }
+
+      const playerName = players[0];
+      
+      // Get ranking history from historical database
+      const rankingHistory = await historicalDatabase.getPlayerHistoricalRankings(playerName, 'ATP', 50);
+      
+      if (!rankingHistory || rankingHistory.length === 0) {
+        return `I don't have ranking history data for ${playerName} in my database. This could be because the player data isn't available yet.`;
+      }
+
+      // Calculate statistics
+      const highestRanking = Math.min(...rankingHistory.map(r => r.ranking));
+      const lowestRanking = Math.max(...rankingHistory.map(r => r.ranking));
+      const currentRanking = rankingHistory[0].ranking;
+      const currentPoints = rankingHistory[0].points;
+
+      let answer = `**Ranking History: ${playerName}**\n\n`;
+      answer += `**Current Ranking:** #${currentRanking} (${currentPoints} points)\n`;
+      answer += `**Career High:** #${highestRanking}\n`;
+      answer += `**Career Low:** #${lowestRanking}\n\n`;
+
+      answer += `**Recent Rankings:**\n`;
+      rankingHistory.slice(0, 10).forEach(ranking => {
+        const date = new Date(ranking.ranking_date).toLocaleDateString();
+        answer += `• ${date}: #${ranking.ranking} (${ranking.points} points)\n`;
+      });
+
+      return answer;
+    } catch (error) {
+      console.error('Error generating ranking history answer:', error);
+      return "I encountered an error while retrieving ranking history. Please try again.";
+    }
+  }
+
+  /**
+   * Extract player names from question
+   */
+  extractPlayerNames(question) {
+    // This is a simple extraction - in a real system, you'd use NLP
+    const commonPlayers = [
+      'Djokovic', 'Nadal', 'Federer', 'Murray', 'Tsitsipas', 'Zverev', 'Medvedev',
+      'Sinner', 'Alcaraz', 'Rublev', 'Ruud', 'Hurkacz', 'Fritz', 'Tiafoe',
+      'Swiatek', 'Sabalenka', 'Gauff', 'Pegula', 'Jabeur', 'Krejcikova', 'Garcia'
+    ];
+
+    const foundPlayers = [];
+    for (const player of commonPlayers) {
+      if (question.toLowerCase().includes(player.toLowerCase())) {
+        foundPlayers.push(player);
+      }
+    }
+
+    return foundPlayers;
   }
 
   /**
