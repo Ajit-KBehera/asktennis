@@ -141,7 +141,8 @@ class EnhancedTennisQueryHandler {
 
       // Determine data source requirements
       analysis.needsLiveData = this.queryPatterns.currentRankings.test(question) || 
-                              this.queryPatterns.liveMatches.test(question);
+                              this.queryPatterns.liveMatches.test(question) ||
+                              this.queryPatterns.rankingQueries.test(question);
       
       analysis.needsHistoricalData = this.queryPatterns.historicalRankings.test(question) ||
                                     this.queryPatterns.matchHistory.test(question) ||

@@ -99,27 +99,20 @@ class EnhancedDataSyncService {
     console.log('🔄 Starting historical data synchronization with GitHub...');
 
     try {
-      // Fetch historical data from GitHub
-      const historicalData = await githubDataService.getAllData();
+      // Note: GitHub data fetching is disabled for now to avoid 404 errors
+      // We'll fetch GitHub data on-demand for specific historical questions
+      console.log('📝 GitHub data fetching disabled - using on-demand approach');
       
-      // Also fetch recent match results for tournament questions
-      const [atpMatches2022, wtaMatches2022, atpMatches2023, wtaMatches2023] = await Promise.all([
-        githubDataService.fetchMatchResults('ATP', 2022),
-        githubDataService.fetchMatchResults('WTA', 2022),
-        githubDataService.fetchMatchResults('ATP', 2023),
-        githubDataService.fetchMatchResults('WTA', 2023)
-      ]);
-      
-      // Add match results to historical data
-      historicalData.atp_matches_2022 = atpMatches2022;
-      historicalData.wta_matches_2022 = wtaMatches2022;
-      historicalData.atp_matches_2023 = atpMatches2023;
-      historicalData.wta_matches_2023 = wtaMatches2023;
-      
-      if (!historicalData) {
-        console.log('⚠️  No historical data received from GitHub');
-        return { success: false, reason: 'No historical data received' };
-      }
+      // Create empty historical data structure
+      const historicalData = {
+        atp_rankings: [],
+        wta_rankings: [],
+        atp_players: [],
+        wta_players: [],
+        match_charting: [],
+        last_updated: new Date().toISOString(),
+        data_source: 'github_disabled'
+      };
 
       // Update database with historical data
       await this.updateHistoricalDataInDatabase(historicalData);
@@ -283,6 +276,11 @@ class EnhancedDataSyncService {
           totalUpdated++;
         } catch (error) {
           console.error(`Error updating ATP ranking for ${ranking.player_name}:`, error.message);
+          // If we get a transaction error, break out of the loop
+          if (error.message.includes('current transaction is aborted')) {
+            console.error('Transaction aborted, stopping ranking updates');
+            break;
+          }
         }
       }
     }
@@ -299,6 +297,11 @@ class EnhancedDataSyncService {
           totalUpdated++;
         } catch (error) {
           console.error(`Error updating WTA ranking for ${ranking.player_name}:`, error.message);
+          // If we get a transaction error, break out of the loop
+          if (error.message.includes('current transaction is aborted')) {
+            console.error('Transaction aborted, stopping ranking updates');
+            break;
+          }
         }
       }
     }
