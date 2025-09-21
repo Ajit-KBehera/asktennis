@@ -320,9 +320,20 @@ class HistoricalDatabase {
 
         for (const ranking of rankingsData) {
           // Extract decade and year from ranking_date
-          const date = new Date(ranking.ranking_date);
-          const year = date.getFullYear();
-          const decade = Math.floor(year / 10) * 10 + 's';
+          let year = null;
+          let decade = null;
+          
+          if (ranking.ranking_date) {
+            try {
+              const date = new Date(ranking.ranking_date);
+              if (!isNaN(date.getTime())) {
+                year = date.getFullYear();
+                decade = Math.floor(year / 10) * 10 + 's';
+              }
+            } catch (error) {
+              // Invalid date, keep as null
+            }
+          }
 
           await client.query(`
             INSERT INTO historical_rankings 

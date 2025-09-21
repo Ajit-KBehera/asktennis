@@ -482,8 +482,7 @@ class GitHubDataService {
         points: isNaN(points) ? null : points,
         tour: tour,
         ranking_date: row.ranking_date || row.date || new Date().toISOString().split('T')[0],
-        data_source: 'github',
-        is_current: true
+        data_source: 'github'
       };
     }).filter(item => item !== null);
   }
@@ -492,21 +491,43 @@ class GitHubDataService {
    * Process match results data
    */
   processMatchResultsData(data, tour) {
-    return data.map(row => ({
-      tournament_name: row.tourney_name || row.tournament,
-      tournament_date: row.tourney_date || row.date,
-      surface: row.surface,
-      round: row.round,
-      winner_name: row.winner_name || row.winner,
-      loser_name: row.loser_name || row.loser,
-      score: row.score,
-      winner_rank: parseInt(row.winner_rank) || null,
-      loser_rank: parseInt(row.loser_rank) || null,
-      winner_points: parseInt(row.winner_pts) || null,
-      loser_points: parseInt(row.loser_pts) || null,
-      tour: tour,
-      data_source: 'github'
-    })).filter(item => item.winner_name && item.loser_name);
+    return data.map(row => {
+      // Safely parse numeric fields
+      const winnerRank = row.winner_rank && row.winner_rank !== '' ? parseInt(row.winner_rank) : null;
+      const loserRank = row.loser_rank && row.loser_rank !== '' ? parseInt(row.loser_rank) : null;
+      const winnerPoints = (row.winner_pts || row.winner_rank_points) && (row.winner_pts || row.winner_rank_points) !== '' ? parseInt(row.winner_pts || row.winner_rank_points) : null;
+      const loserPoints = (row.loser_pts || row.loser_rank_points) && (row.loser_pts || row.loser_rank_points) !== '' ? parseInt(row.loser_pts || row.loser_rank_points) : null;
+      
+      // Parse tournament date safely
+      let tournamentDate = null;
+      const dateValue = row.tourney_date || row.date;
+      if (dateValue) {
+        try {
+          const date = new Date(dateValue);
+          if (!isNaN(date.getTime())) {
+            tournamentDate = date.toISOString().split('T')[0];
+          }
+        } catch (error) {
+          // Invalid date, keep as null
+        }
+      }
+      
+      return {
+        tournament_name: row.tourney_name || row.tournament,
+        tournament_date: tournamentDate,
+        surface: row.surface,
+        round: row.round,
+        winner_name: row.winner_name || row.winner,
+        loser_name: row.loser_name || row.loser,
+        score: row.score,
+        winner_rank: winnerRank,
+        loser_rank: loserRank,
+        winner_points: winnerPoints,
+        loser_points: loserPoints,
+        tour: tour,
+        data_source: 'github'
+      };
+    }).filter(item => item.winner_name && item.loser_name);
   }
 
   /**
