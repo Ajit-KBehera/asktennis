@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
+import { ThemeProvider } from './contexts/ThemeContext';
 import QueryInput from './components/QueryInput';
 import LoadingSpinner from './components/LoadingSpinner';
 import DataDisplay from './components/DataDisplay';
+import ThemeToggle from './components/ThemeToggle';
 
 interface QueryResult {
   question: string;
@@ -16,6 +19,66 @@ interface QueryResult {
 }
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+
+// Animation variants
+const pageVariants = {
+  initial: { opacity: 0, y: 20 },
+  in: { opacity: 1, y: 0 },
+  out: { opacity: 0, y: -20 }
+};
+
+const pageTransition = {
+  type: "tween" as const,
+  ease: "anticipate" as const,
+  duration: 0.5
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 100,
+      damping: 12
+    }
+  }
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, scale: 0.8, y: 50 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 100,
+      damping: 15
+    }
+  },
+  hover: {
+    scale: 1.02,
+    y: -5,
+    transition: {
+      type: "spring" as const,
+      stiffness: 400,
+      damping: 10
+    }
+  }
+};
 
 function App() {
   const [isLoading, setIsLoading] = useState(false);
@@ -134,22 +197,52 @@ function App() {
 
 
   return (
-    <div className="min-vh-100 d-flex flex-column" style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}}>
+    <ThemeProvider>
+      <motion.div 
+        className="min-vh-100 d-flex flex-column" 
+        style={{background: 'var(--bg-primary)'}}
+        initial="initial"
+        animate="in"
+        exit="out"
+        variants={pageVariants}
+        transition={pageTransition}
+      >
+        <ThemeToggle />
       {/* Modern Header */}
-      <header className="py-4">
+      <motion.header 
+        className="py-4"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-12 text-center">
-              <h1 className="display-3 fw-bold text-white mb-0">
-                <span className="me-3">🎾</span>AskTennis
-              </h1>
-              <p className="lead text-white-50 mt-2">
+              <motion.h1 
+                className="heading-1 text-primary mb-0"
+                variants={itemVariants}
+                whileHover={{ scale: 1.05 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              >
+                <motion.span 
+                  className="me-3"
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                >
+                  🎾
+                </motion.span>
+                AskTennis
+              </motion.h1>
+              <motion.p 
+                className="body-large text-secondary mt-2"
+                variants={itemVariants}
+              >
                 Your AI-powered tennis statistics assistant
-              </p>
+              </motion.p>
             </div>
           </div>
         </div>
-      </header>
+      </motion.header>
       
       {/* Main Content */}
       <main className="flex-grow-1 d-flex align-items-center justify-content-center py-5">
@@ -157,96 +250,181 @@ function App() {
           <div className="row justify-content-center">
             <div className="col-12 col-lg-8 col-xl-6">
               {/* Input Card - AskCricinfo Style */}
-              <div className="input-card" style={{
-                borderRadius: '16px', 
-                background: 'rgba(255, 255, 255, 0.05)', 
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                padding: '2rem'
-              }}>
+              <motion.div 
+                className="input-card card-modern" 
+                style={{
+                  padding: 'var(--space-8)'
+                }}
+                variants={cardVariants}
+                initial="hidden"
+                animate="visible"
+                whileHover="hover"
+              >
                 <QueryInput onQuery={handleQuery} isLoading={isLoading} />
-              </div>
+              </motion.div>
 
               {/* Loading Spinner */}
-              {isLoading && (
-                <div className="text-center mt-4">
-                  <LoadingSpinner />
-                </div>
-              )}
+              <AnimatePresence>
+                {isLoading && (
+                  <motion.div 
+                    className="text-center mt-4"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <LoadingSpinner />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Response Display */}
-              {currentResponse && !isLoading && (
-                <div className="mt-4">
-                  <div className="card shadow-lg border-0" style={{
-                    borderRadius: '20px', 
-                    background: 'rgba(255, 255, 255, 0.1)', 
-                    backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
-                  }}>
-                    <div className="card-body p-4">
-                      <div className="d-flex justify-content-between align-items-center mb-3">
-                        <h5 className="card-title mb-0 text-white">
-                          <i className="bi bi-chat-dots me-2"></i>
-                          Your Question
-                        </h5>
-                        <small className="text-white-50">
-                          {new Date(currentResponse.timestamp).toLocaleTimeString()}
-                        </small>
-                      </div>
-                      <div className="alert alert-light border-0 mb-3" style={{background: 'rgba(0,123,255,0.1)'}}>
-                        <p className="mb-0 fw-medium">{currentResponse.question}</p>
-                      </div>
-                      
-                      <h6 className="text-white mb-3">
-                        <i className="bi bi-lightbulb me-2"></i>
-                        Answer
-                      </h6>
-                      <div className="alert alert-success border-0 mb-3">
-                        <p className="mb-0">{currentResponse.answer}</p>
-                      </div>
-
-                      {/* Enhanced Data Display */}
-                      {currentResponse.data && currentResponse.data.length > 0 && (
-                        <DataDisplay 
-                          data={currentResponse.data} 
-                          queryType={currentResponse.queryType}
-                        />
-                      )}
-
-                      {/* Clear Response Button */}
-                      <div className="text-center mt-4">
-                        <button 
-                          className="btn btn-outline-secondary btn-sm"
-                          onClick={() => setCurrentResponse(null)}
+              <AnimatePresence mode="wait">
+                {currentResponse && !isLoading && (
+                  <motion.div 
+                    className="mt-4"
+                    initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -50, scale: 0.9 }}
+                    transition={{ 
+                      type: "spring", 
+                      stiffness: 100, 
+                      damping: 15,
+                      duration: 0.5 
+                    }}
+                  >
+                    <motion.div 
+                      className="card card-modern shadow-glass" 
+                      whileHover={{ 
+                        scale: 1.02,
+                        boxShadow: 'var(--shadow-glass-hover)'
+                      }}
+                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    >
+                      <div className="card-body p-4">
+                        <motion.div 
+                          className="d-flex justify-content-between align-items-center mb-3"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.2 }}
                         >
-                          <i className="bi bi-x-circle me-2"></i>
-                          Clear Response
-                        </button>
+                          <h5 className="card-title mb-0 text-primary">
+                            <motion.i 
+                              className="bi bi-chat-dots me-2"
+                              animate={{ rotate: [0, 10, -10, 0] }}
+                              transition={{ duration: 2, repeat: Infinity, repeatDelay: 4 }}
+                            ></motion.i>
+                            Your Question
+                          </h5>
+                          <small className="text-muted">
+                            {new Date(currentResponse.timestamp).toLocaleTimeString()}
+                          </small>
+                        </motion.div>
+                        
+                        <motion.div 
+                          className="alert alert-light border-0 mb-3" 
+                          style={{background: 'rgba(0,123,255,0.1)'}}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 }}
+                        >
+                          <p className="mb-0 fw-medium">{currentResponse.question}</p>
+                        </motion.div>
+                        
+                        <motion.h6 
+                          className="text-primary mb-3"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.4 }}
+                        >
+                          <motion.i 
+                            className="bi bi-lightbulb me-2"
+                            animate={{ 
+                              color: ['var(--color-warning)', '#ffed4e', 'var(--color-warning)'],
+                              scale: [1, 1.1, 1]
+                            }}
+                            transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                          ></motion.i>
+                          Answer
+                        </motion.h6>
+                        
+                        <motion.div 
+                          className="alert alert-success border-0 mb-3"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.5 }}
+                        >
+                          <p className="mb-0">{currentResponse.answer}</p>
+                        </motion.div>
+
+                        {/* Enhanced Data Display */}
+                        {currentResponse.data && currentResponse.data.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.6 }}
+                          >
+                            <DataDisplay 
+                              data={currentResponse.data} 
+                              queryType={currentResponse.queryType}
+                            />
+                          </motion.div>
+                        )}
+
+                        {/* Clear Response Button */}
+                        <motion.div 
+                          className="text-center mt-4"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: 0.7 }}
+                        >
+                          <motion.button 
+                            className="btn btn-outline-secondary btn-sm"
+                            onClick={() => setCurrentResponse(null)}
+                            whileHover={{ 
+                              scale: 1.05,
+                              backgroundColor: 'rgba(108, 117, 125, 0.2)'
+                            }}
+                            whileTap={{ scale: 0.95 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                          >
+                            <i className="bi bi-x-circle me-2"></i>
+                            Clear Response
+                          </motion.button>
+                        </motion.div>
                       </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="py-3">
+      <motion.footer 
+        className="py-3"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1, duration: 0.5 }}
+      >
         <div className="container">
           <div className="row">
             <div className="col-12 text-center">
-              <p className="text-white-50 mb-0 small">
+              <motion.p 
+                className="text-muted mb-0 body-small"
+                whileHover={{ scale: 1.05 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              >
                 © 2025 AskTennis - Powered by AI & Sportsradar API
-              </p>
+              </motion.p>
             </div>
           </div>
         </div>
-      </footer>
-    </div>
+      </motion.footer>
+      </motion.div>
+    </ThemeProvider>
   );
 }
 

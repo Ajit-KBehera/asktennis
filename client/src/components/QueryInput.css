@@ -12,15 +12,33 @@
   align-items: center;
 }
 
+.input-field-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .ask-input {
   width: 100%;
   min-height: 56px;
-  padding: 16px 60px 16px 16px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding: 16px 60px 16px 20px;
+  font-family: var(--font-family-primary);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-normal);
+  line-height: var(--line-height-normal);
+  color: var(--color-gray-900);
+  background: rgba(255, 255, 255, 0.95);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-2xl);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+  resize: none;
+  outline: none;
   /* Hide scrollbar while keeping functionality */
   overflow: hidden;
-  resize: none;
-  /* Custom scrollbar for webkit browsers */
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE and Edge */
 }
@@ -31,18 +49,68 @@
 }
 
 .ask-input:focus {
-  outline: none;
-  border-color: #007bff !important;
-  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1) !important;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), var(--shadow-lg);
+  transform: scale(1.02);
 }
 
-.submit-btn:hover {
+.ask-input::placeholder {
+  color: var(--color-gray-500);
+  font-weight: var(--font-weight-normal);
+}
+
+.ask-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.submit-button {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-xl);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-primary-600);
+  color: white;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+  cursor: pointer;
+  z-index: 10;
+  margin: 0;
+  padding: 0;
+}
+
+.submit-button:hover:not(:disabled) {
+  background: var(--color-primary-700);
   transform: translateY(-50%) scale(1.05);
+  box-shadow: var(--shadow-lg);
 }
 
-.submit-btn:disabled {
+.submit-button:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.submit-button:disabled {
+  background: var(--color-gray-400);
+  cursor: not-allowed;
   transform: translateY(-50%);
   opacity: 0.6;
+}
+
+.submit-button i {
+  font-size: 16px;
+  transition: transform var(--transition-fast);
+}
+
+.submit-button:hover:not(:disabled) i {
+  transform: translateX(2px);
 }
 
 .suggestions-dropdown {
@@ -50,12 +118,12 @@
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-glass);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   z-index: 1000;
-  margin-top: 4px;
+  margin-top: 8px;
   overflow: hidden;
   backdrop-filter: blur(20px);
 }
@@ -69,26 +137,74 @@
 .suggestion-item {
   padding: 12px 16px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all var(--transition-base);
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  font-size: 0.95rem;
-  color: #333;
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-700);
+  font-weight: var(--font-weight-normal);
 }
 
 .suggestion-item:hover {
-  background-color: rgba(0, 123, 255, 0.1);
+  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--color-primary-700);
+  transform: translateX(4px);
 }
 
 .suggestion-item:last-child {
   border-bottom: none;
 }
 
+.suggestion-item i {
+  color: var(--color-warning);
+  margin-right: 8px;
+}
+
 @media (max-width: 768px) {
   .ask-input {
     font-size: 16px; /* Prevents zoom on iOS */
+    padding: 14px 50px 14px 16px;
+    min-height: 52px;
+  }
+  
+  .submit-button {
+    width: 36px;
+    height: 36px;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  
+  .submit-button i {
+    font-size: 14px;
   }
   
   .suggestions-dropdown {
-    margin-top: 2px;
+    margin-top: 6px;
+    border-radius: var(--radius-lg);
+  }
+  
+  .suggestion-item {
+    padding: 10px 14px;
+    font-size: var(--font-size-sm);
+  }
+}
+
+@media (max-width: 480px) {
+  .ask-input {
+    padding: 12px 46px 12px 14px;
+    min-height: 48px;
+    font-size: 16px;
+  }
+  
+  .submit-button {
+    width: 32px;
+    height: 32px;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  
+  .submit-button i {
+    font-size: 12px;
   }
 }
