@@ -302,7 +302,7 @@ class GitHubDataService {
       
       const tournamentKey = tournamentMap[tournament.toLowerCase()] || tournament;
       const fileName = `${year}-${tournamentKey}-points.csv`;
-      const url = `${this.baseUrl}/${this.repositories.slam}/main/${fileName}`;
+      const url = `${this.baseUrl}/${this.repositories.slam}/master/${fileName}`;
       
       console.log(`🔄 Fetching Grand Slam data for ${tournament} ${year}...`);
       const data = await this.fetchAndParseCSV(url);
@@ -329,7 +329,7 @@ class GitHubDataService {
       
       const tournamentKey = tournamentMap[tournament.toLowerCase()] || tournament;
       const fileName = `${year}-${tournamentKey}-matches.csv`;
-      const url = `${this.baseUrl}/${this.repositories.slam}/main/${fileName}`;
+      const url = `${this.baseUrl}/${this.repositories.slam}/master/${fileName}`;
       
       console.log(`🔄 Fetching Grand Slam matches for ${tournament} ${year}...`);
       const data = await this.fetchAndParseCSV(url);
@@ -339,6 +339,75 @@ class GitHubDataService {
     } catch (error) {
       console.error(`❌ Failed to fetch Grand Slam matches:`, error.message);
       return [];
+    }
+  }
+
+  /**
+   * Fetch Grand Slam data for multiple years
+   */
+  async fetchGrandSlamDataRange(startYear = 2020, endYear = 2024, tournament = 'wimbledon') {
+    try {
+      console.log(`🔄 Fetching Grand Slam data for ${tournament} ${startYear}-${endYear}...`);
+      
+      const allMatches = [];
+      const allPoints = [];
+      
+      for (let year = startYear; year <= endYear; year++) {
+        try {
+          const [matches, points] = await Promise.all([
+            this.fetchGrandSlamMatches(year, tournament),
+            this.fetchGrandSlamData(year, tournament)
+          ]);
+          allMatches.push(...matches);
+          allPoints.push(...points);
+        } catch (error) {
+          console.log(`⚠️  Skipping ${tournament} ${year} (data not available)`);
+        }
+      }
+      
+      console.log(`✅ Fetched ${allMatches.length} matches and ${allPoints.length} points for ${tournament} ${startYear}-${endYear}`);
+      return {
+        matches: allMatches,
+        points: allPoints
+      };
+    } catch (error) {
+      console.error(`❌ Failed to fetch Grand Slam data range for ${tournament}:`, error.message);
+      return { matches: [], points: [] };
+    }
+  }
+
+  /**
+   * Fetch all Grand Slam tournaments for a year
+   */
+  async fetchAllGrandSlamsForYear(year = 2024) {
+    try {
+      console.log(`🔄 Fetching all Grand Slam data for ${year}...`);
+      
+      const tournaments = ['ausopen', 'frenchopen', 'wimbledon', 'usopen'];
+      const allMatches = [];
+      const allPoints = [];
+      
+      for (const tournament of tournaments) {
+        try {
+          const [matches, points] = await Promise.all([
+            this.fetchGrandSlamMatches(year, tournament),
+            this.fetchGrandSlamData(year, tournament)
+          ]);
+          allMatches.push(...matches);
+          allPoints.push(...points);
+        } catch (error) {
+          console.log(`⚠️  Skipping ${tournament} ${year} (data not available)`);
+        }
+      }
+      
+      console.log(`✅ Fetched ${allMatches.length} matches and ${allPoints.length} points for all Grand Slams ${year}`);
+      return {
+        matches: allMatches,
+        points: allPoints
+      };
+    } catch (error) {
+      console.error(`❌ Failed to fetch all Grand Slam data for ${year}:`, error.message);
+      return { matches: [], points: [] };
     }
   }
 
@@ -496,23 +565,79 @@ class GitHubDataService {
   }
 
   /**
-   * Process Grand Slam data
+   * Process Grand Slam points data
    */
   processGrandSlamData(data, year, tournament) {
     return data.map(row => ({
-      point_id: row.point_id,
       match_id: row.match_id,
       tournament: tournament,
       year: year,
-      round: row.round,
-      player1: row.player1,
-      player2: row.player2,
-      point_winner: row.point_winner,
-      serve_direction: row.serve_direction,
-      return_direction: row.return_direction,
-      rally_length: parseInt(row.rally_length) || 0,
+      elapsed_time: row.ElapsedTime,
+      set_no: parseInt(row.SetNo) || null,
+      p1_games_won: parseInt(row.P1GamesWon) || null,
+      p2_games_won: parseInt(row.P2GamesWon) || null,
+      set_winner: parseInt(row.SetWinner) || null,
+      game_no: parseInt(row.GameNo) || null,
+      game_winner: parseInt(row.GameWinner) || null,
+      point_number: row.PointNumber,
+      point_winner: parseInt(row.PointWinner) || null,
+      point_server: parseInt(row.PointServer) || null,
+      speed_kmh: parseInt(row.Speed_KMH) || null,
+      rally: parseInt(row.Rally) || null,
+      p1_score: row.P1Score,
+      p2_score: row.P2Score,
+      p1_momentum: parseInt(row.P1Momentum) || null,
+      p2_momentum: parseInt(row.P2Momentum) || null,
+      p1_points_won: parseInt(row.P1PointsWon) || null,
+      p2_points_won: parseInt(row.P2PointsWon) || null,
+      p1_ace: parseInt(row.P1Ace) || null,
+      p2_ace: parseInt(row.P2Ace) || null,
+      p1_winner: parseInt(row.P1Winner) || null,
+      p2_winner: parseInt(row.P2Winner) || null,
+      p1_double_fault: parseInt(row.P1DoubleFault) || null,
+      p2_double_fault: parseInt(row.P2DoubleFault) || null,
+      p1_unf_err: parseInt(row.P1UnfErr) || null,
+      p2_unf_err: parseInt(row.P2UnfErr) || null,
+      p1_net_point: parseInt(row.P1NetPoint) || null,
+      p2_net_point: parseInt(row.P2NetPoint) || null,
+      p1_net_point_won: parseInt(row.P1NetPointWon) || null,
+      p2_net_point_won: parseInt(row.P2NetPointWon) || null,
+      p1_break_point: parseInt(row.P1BreakPoint) || null,
+      p2_break_point: parseInt(row.P2BreakPoint) || null,
+      p1_break_point_won: parseInt(row.P1BreakPointWon) || null,
+      p2_break_point_won: parseInt(row.P2BreakPointWon) || null,
+      p1_first_srv_in: parseInt(row.P1FirstSrvIn) || null,
+      p2_first_srv_in: parseInt(row.P2FirstSrvIn) || null,
+      p1_first_srv_won: parseInt(row.P1FirstSrvWon) || null,
+      p2_first_srv_won: parseInt(row.P2FirstSrvWon) || null,
+      p1_second_srv_in: parseInt(row.P1SecondSrvIn) || null,
+      p2_second_srv_in: parseInt(row.P2SecondSrvIn) || null,
+      p1_second_srv_won: parseInt(row.P1SecondSrvWon) || null,
+      p2_second_srv_won: parseInt(row.P2SecondSrvWon) || null,
+      p1_forced_error: parseInt(row.P1ForcedError) || null,
+      p2_forced_error: parseInt(row.P2ForcedError) || null,
+      history: row.History,
+      speed_mph: parseInt(row.Speed_MPH) || null,
+      p1_break_point_missed: parseInt(row.P1BreakPointMissed) || null,
+      p2_break_point_missed: parseInt(row.P2BreakPointMissed) || null,
+      serve_indicator: row.ServeIndicator,
+      serve_direction: row.Serve_Direction,
+      winner_fh: row.Winner_FH,
+      winner_bh: row.Winner_BH,
+      serving_to: row.ServingTo,
+      p1_turning_point: parseInt(row.P1TurningPoint) || null,
+      p2_turning_point: parseInt(row.P2TurningPoint) || null,
+      serve_number: parseInt(row.ServeNumber) || null,
+      winner_type: row.WinnerType,
+      winner_shot_type: row.WinnerShotType,
+      p1_distance_run: parseFloat(row.P1DistanceRun) || null,
+      p2_distance_run: parseFloat(row.P2DistanceRun) || null,
+      rally_count: parseInt(row.RallyCount) || null,
+      serve_width: row.ServeWidth,
+      serve_depth: row.ServeDepth,
+      return_depth: row.ReturnDepth,
       data_source: 'github_slam'
-    })).filter(item => item.point_id);
+    })).filter(item => item.match_id && item.point_number);
   }
 
   /**
@@ -523,12 +648,20 @@ class GitHubDataService {
       match_id: row.match_id,
       tournament: tournament,
       year: year,
-      round: row.round,
+      slam: row.slam,
+      match_num: parseInt(row.match_num) || null,
       player1: row.player1,
       player2: row.player2,
+      status: row.status,
       winner: row.winner,
-      score: row.score,
-      surface: row.surface,
+      event_name: row.event_name,
+      round: row.round,
+      court_name: row.court_name,
+      court_id: row.court_id,
+      player1id: row.player1id,
+      player2id: row.player2id,
+      nation1: row.nation1,
+      nation2: row.nation2,
       data_source: 'github_slam'
     })).filter(item => item.match_id);
   }
