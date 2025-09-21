@@ -7,10 +7,10 @@ const { Server } = require('socket.io');
 const path = require('path');
 require('dotenv').config();
 
-const tennisQueryHandler = require('./src/queryHandler');
+const tennisQueryHandler = require('./src/enhancedQueryHandler');
 const database = require('./src/database');
 const cache = require('./src/cache');
-const dataSync = require('./src/dataSync');
+const dataSync = require('./src/enhancedDataSync');
 
 const app = express();
 const server = createServer(app);

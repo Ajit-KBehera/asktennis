@@ -102,6 +102,20 @@ class EnhancedDataSyncService {
       // Fetch historical data from GitHub
       const historicalData = await githubDataService.getAllData();
       
+      // Also fetch recent match results for tournament questions
+      const [atpMatches2022, wtaMatches2022, atpMatches2023, wtaMatches2023] = await Promise.all([
+        githubDataService.fetchMatchResults('ATP', 2022),
+        githubDataService.fetchMatchResults('WTA', 2022),
+        githubDataService.fetchMatchResults('ATP', 2023),
+        githubDataService.fetchMatchResults('WTA', 2023)
+      ]);
+      
+      // Add match results to historical data
+      historicalData.atp_matches_2022 = atpMatches2022;
+      historicalData.wta_matches_2022 = wtaMatches2022;
+      historicalData.atp_matches_2023 = atpMatches2023;
+      historicalData.wta_matches_2023 = wtaMatches2023;
+      
       if (!historicalData) {
         console.log('⚠️  No historical data received from GitHub');
         return { success: false, reason: 'No historical data received' };

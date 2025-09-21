@@ -118,11 +118,34 @@ class GitHubDataService {
   async fetchMatchResults(tour = 'ATP', year = null) {
     try {
       const repo = tour === 'ATP' ? this.repositories.atp : this.repositories.wta;
-      const fileName = year ? `${tour.toLowerCase()}_matches_${year}.csv` : `${tour.toLowerCase()}_matches_2024.csv`;
-      const url = `${this.baseUrl}/${repo}/main/${fileName}`;
       
-      console.log(`🔄 Fetching ${tour} match results for ${year || '2024'}...`);
-      const data = await this.fetchAndParseCSV(url);
+      // Try different possible file names for match results
+      const possibleFiles = year ? [
+        `${tour.toLowerCase()}_matches_${year}.csv`,
+        `matches_${year}.csv`,
+        `${year}_matches.csv`
+      ] : [
+        `${tour.toLowerCase()}_matches_2024.csv`,
+        `${tour.toLowerCase()}_matches_2023.csv`,
+        `matches_2024.csv`,
+        `matches_2023.csv`
+      ];
+      
+      let data = [];
+      for (const fileName of possibleFiles) {
+        try {
+          const url = `${this.baseUrl}/${repo}/main/${fileName}`;
+          console.log(`🔄 Trying to fetch ${tour} match results from: ${fileName}`);
+          data = await this.fetchAndParseCSV(url);
+          if (data.length > 0) {
+            console.log(`✅ Found ${tour} match results in file: ${fileName}`);
+            break;
+          }
+        } catch (error) {
+          console.log(`⚠️  File ${fileName} not found, trying next...`);
+          continue;
+        }
+      }
       
       console.log(`✅ Fetched ${data.length} ${tour} match results`);
       return this.processMatchResultsData(data, tour);
