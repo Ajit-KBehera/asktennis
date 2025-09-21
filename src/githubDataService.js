@@ -466,16 +466,26 @@ class GitHubDataService {
    * Process rankings data into standardized format
    */
   processRankingsData(data, tour) {
-    return data.map(row => ({
-      player_id: row.player || row.player_id,
-      player_name: row.player || row.player_id, // Will be resolved later with player names
-      ranking: parseInt(row.rank) || parseInt(row.ranking),
-      points: parseInt(row.points) || 0,
-      tour: tour,
-      ranking_date: row.ranking_date || row.date || new Date().toISOString().split('T')[0],
-      data_source: 'github',
-      is_current: true
-    })).filter(item => item.player_id && item.ranking);
+    return data.map(row => {
+      const ranking = parseInt(row.rank);
+      const points = parseInt(row.points);
+      
+      // Skip rows with invalid data
+      if (!row.player || isNaN(ranking) || ranking <= 0) {
+        return null;
+      }
+      
+      return {
+        player_id: row.player || row.player_id,
+        player_name: row.player || row.player_id, // Will be resolved later with player names
+        ranking: ranking,
+        points: isNaN(points) ? null : points,
+        tour: tour,
+        ranking_date: row.ranking_date || row.date || new Date().toISOString().split('T')[0],
+        data_source: 'github',
+        is_current: true
+      };
+    }).filter(item => item !== null);
   }
 
   /**
@@ -503,18 +513,37 @@ class GitHubDataService {
    * Process player data
    */
   processPlayerData(data, tour) {
-    return data.map(row => ({
-      player_id: row.player_id,
-      name: `${row.name_first} ${row.name_last}`.trim(),
-      birth_date: row.dob ? `${row.dob.slice(0,4)}-${row.dob.slice(4,6)}-${row.dob.slice(6,8)}` : null,
-      country: row.ioc,
-      height: parseInt(row.height) || null,
-      weight: null, // Not available in this dataset
-      playing_hand: row.hand,
-      turned_pro: null, // Not available in this dataset
-      tour: tour,
-      data_source: 'github'
-    })).filter(item => item.name && item.player_id);
+    return data.map(row => {
+      // Parse birth date safely
+      let birthDate = null;
+      if (row.dob && row.dob !== '1900-00-00' && row.dob !== '1889-00-00' && row.dob.length >= 8) {
+        try {
+          const year = row.dob.slice(0, 4);
+          const month = row.dob.slice(4, 6);
+          const day = row.dob.slice(6, 8);
+          
+          // Validate date components
+          if (year !== '0000' && month !== '00' && day !== '00') {
+            birthDate = `${year}-${month}-${day}`;
+          }
+        } catch (error) {
+          // Invalid date, keep as null
+        }
+      }
+      
+      return {
+        player_id: row.player_id,
+        name: `${row.name_first} ${row.name_last}`.trim(),
+        birth_date: birthDate,
+        country: row.ioc,
+        height: parseInt(row.height) || null,
+        weight: null, // Not available in this dataset
+        playing_hand: row.hand,
+        turned_pro: null, // Not available in this dataset
+        tour: tour,
+        data_source: 'github'
+      };
+    }).filter(item => item.name && item.player_id);
   }
 
   /**

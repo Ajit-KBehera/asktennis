@@ -904,6 +904,67 @@ class HistoricalDatabase {
   }
 
   /**
+   * Get historical rankings
+   */
+  async getHistoricalRankings(tour, limit = 100) {
+    try {
+      const result = await this.pool.query(`
+        SELECT hr.*, hp.name as player_name
+        FROM historical_rankings hr
+        LEFT JOIN historical_players hp ON hr.player_id = hp.player_id
+        WHERE hr.tour = $1
+        ORDER BY hr.ranking
+        LIMIT $2
+      `, [tour, limit]);
+
+      return result.rows;
+    } catch (error) {
+      console.error('❌ Error fetching historical rankings:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get historical matches
+   */
+  async getHistoricalMatches(tour, limit = 100) {
+    try {
+      const result = await this.pool.query(`
+        SELECT *
+        FROM historical_matches
+        WHERE tour = $1
+        ORDER BY tournament_date DESC
+        LIMIT $2
+      `, [tour, limit]);
+
+      return result.rows;
+    } catch (error) {
+      console.error('❌ Error fetching historical matches:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Get tournament matches
+   */
+  async getTournamentMatches(tournament, year, limit = 100) {
+    try {
+      const result = await this.pool.query(`
+        SELECT *
+        FROM grand_slam_matches
+        WHERE LOWER(tournament) LIKE LOWER($1) AND year = $2
+        ORDER BY id
+        LIMIT $3
+      `, [`%${tournament}%`, year, limit]);
+
+      return result.rows;
+    } catch (error) {
+      console.error('❌ Error fetching tournament matches:', error.message);
+      return [];
+    }
+  }
+
+  /**
    * Get database statistics
    */
   async getDatabaseStats() {
