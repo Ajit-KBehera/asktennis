@@ -224,6 +224,9 @@ class HistoricalDatabase {
 
       // Create indexes for better performance
       await this.createIndexes();
+      
+      // Create additional performance indexes
+      await this.createPerformanceIndexes();
 
       console.log('✅ Historical data schema initialized successfully');
     } catch (error) {
@@ -971,6 +974,146 @@ class HistoricalDatabase {
       return result.rows;
     } catch (error) {
       console.error('❌ Error fetching tournament matches:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Create additional performance indexes for large datasets
+   */
+  async createPerformanceIndexes() {
+    try {
+      console.log('🔄 Creating performance indexes for large datasets...');
+      
+      // Composite indexes for common query patterns
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_historical_rankings_tour_ranking_date 
+        ON historical_rankings(tour, ranking_date DESC, ranking);
+      `);
+      
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_historical_rankings_player_tour_date 
+        ON historical_rankings(player_id, tour, ranking_date DESC);
+      `);
+      
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_historical_matches_tour_date_players 
+        ON historical_matches(tour, tournament_date DESC, winner_name, loser_name);
+      `);
+      
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_historical_players_tour_country 
+        ON historical_players(tour, country, name);
+      `);
+      
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_match_charting_tournament_date_players 
+        ON match_charting(tournament, date DESC, player1, player2);
+      `);
+      
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_grand_slam_matches_tournament_year_round 
+        ON grand_slam_matches(tournament, year DESC, round, player1, player2);
+      `);
+      
+      // Additional composite indexes for better performance
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_historical_rankings_date_ranking 
+        ON historical_rankings(ranking_date DESC, ranking, player_id);
+      `);
+      
+      await this.pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_historical_matches_date_tournament 
+        ON historical_matches(tournament_date DESC, tournament_name, winner_name, loser_name);
+      `);
+      
+      console.log('✅ Performance indexes created successfully');
+    } catch (error) {
+      console.error('❌ Failed to create performance indexes:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Optimized query for top rankings
+   */
+  async getTopRankings(tour, limit = 10, date = null) {
+    try {
+      let query = `
+        SELECT hr.player_id, hr.player_name, hr.ranking, hr.points, hr.ranking_date
+        FROM historical_rankings hr
+        WHERE hr.tour = $1
+      `;
+      
+      const params = [tour];
+      
+      if (date) {
+        query += ` AND hr.ranking_date = $2`;
+        params.push(date);
+      } else {
+        query += ` AND hr.ranking_date = (
+          SELECT MAX(ranking_date) FROM historical_rankings WHERE tour = $1
+        )`;
+      }
+      
+      query += ` ORDER BY hr.ranking LIMIT $${params.length + 1}`;
+      params.push(limit);
+      
+      const result = await this.pool.query(query, params);
+      return result.rows;
+    } catch (error) {
+      console.error('❌ Error fetching top rankings:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Optimized query for player search
+   */
+  async searchPlayers(searchTerm, tour = null, limit = 20) {
+    try {
+      let query = `
+        SELECT player_id, name, country, birth_date, tour
+        FROM historical_players
+        WHERE LOWER(name) LIKE LOWER($1)
+      `;
+      
+      const params = [`%${searchTerm}%`];
+      
+      if (tour) {
+        query += ` AND tour = $2`;
+        params.push(tour);
+        query += ` ORDER BY name LIMIT $3`;
+        params.push(limit);
+      } else {
+        query += ` ORDER BY name LIMIT $2`;
+        params.push(limit);
+      }
+      
+      const result = await this.pool.query(query, params);
+      return result.rows;
+    } catch (error) {
+      console.error('❌ Error searching players:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Optimized query for recent matches
+   */
+  async getRecentMatches(tour, limit = 20) {
+    try {
+      const result = await this.pool.query(`
+        SELECT tournament_name, tournament_date, winner_name, loser_name, score, surface
+        FROM historical_matches
+        WHERE tour = $1
+        ORDER BY tournament_date DESC
+        LIMIT $2
+      `, [tour, limit]);
+
+      return result.rows;
+    } catch (error) {
+      console.error('❌ Error fetching recent matches:', error.message);
       return [];
     }
   }
