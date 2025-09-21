@@ -1,0 +1,678 @@
+const Groq = require('groq-sdk');
+const database = require('./database');
+const enhancedDataSync = require('./enhancedDataSync');
+const dataModels = require('./dataModels');
+
+// Initialize database connection once at startup
+let dbInitialized = false;
+async function initializeDatabase() {
+  if (!dbInitialized) {
+    try {
+      await database.connect(true);
+      dbInitialized = true;
+      console.log('🚀 Database initialized for enhanced query processing');
+    } catch (error) {
+      console.error('❌ Failed to initialize database:', error.message);
+    }
+  }
+}
+
+// Enhanced caching system for frequent queries
+class EnhancedQueryCache {
+  constructor() {
+    this.cache = new Map();
+    this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
+    this.maxCacheSize = 200; // Increased for more data sources
+  }
+
+  generateCacheKey(question, queryType, dataSource) {
+    const normalized = question.toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return `${queryType}:${dataSource}:${normalized}`;
+  }
+
+  get(question, queryType, dataSource = 'combined') {
+    const key = this.generateCacheKey(question, queryType, dataSource);
+    const cached = this.cache.get(key);
+    
+    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+      console.log('🎯 Cache HIT for:', question.substring(0, 50) + '...');
+      return cached.data;
+    }
+    
+    if (cached) {
+      this.cache.delete(key);
+    }
+    
+    return null;
+  }
+
+  set(question, queryType, dataSource, data) {
+    const key = this.generateCacheKey(question, queryType, dataSource);
+    
+    if (this.cache.size >= this.maxCacheSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+    
+    this.cache.set(key, {
+      data: data,
+      timestamp: Date.now()
+    });
+    
+    console.log('💾 Cache SET for:', question.substring(0, 50) + '...');
+  }
+
+  clear() {
+    this.cache.clear();
+    console.log('🗑️ Enhanced cache cleared');
+  }
+
+  getStats() {
+    return {
+      size: this.cache.size,
+      maxSize: this.maxCacheSize,
+      timeout: this.cacheTimeout
+    };
+  }
+}
+
+// Global cache instance
+const enhancedQueryCache = new EnhancedQueryCache();
+
+class EnhancedTennisQueryHandler {
+  constructor() {
+    this.groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY
+    });
+    
+    // Enhanced query patterns for hybrid data sources
+    this.queryPatterns = {
+      // Live data patterns (Sportsradar)
+      currentRankings: /(?:current|latest|now|today|rank.*\d+|number.*\d+|who.*rank.*\d+)/i,
+      liveMatches: /(?:live|current|ongoing|happening|now|today).*(?:match|game|event)/i,
+      
+      // Historical data patterns (GitHub)
+      historicalRankings: /(?:historical|past|previous|trend|compare|over.*time|ranking.*history)/i,
+      matchHistory: /(?:head.*to.*head|h2h|versus|against|record|history|matches)/i,
+      careerStats: /(?:career|profile|statistics|stats|performance|analysis)/i,
+      
+      // Combined data patterns
+      playerProfile: /(?:tell me about|information about|who is|profile of).*(?:player|tennis player)/i,
+      tournamentAnalysis: /(?:tournament|competition|event).*(?:analysis|performance|statistics)/i,
+      
+      // Specific data source patterns
+      grandSlamData: /(?:grand slam|wimbledon|us open|french open|australian open|roland garros)/i,
+      matchCharting: /(?:point.*by.*point|shot.*by.*shot|detailed.*analysis|charting)/i,
+      
+      // General patterns
+      rankingQueries: /(?:ranking|rank|number one|top.*rank|position)/i,
+      playerInfo: /(?:player|tennis player|competitor)/i,
+      tournamentInfo: /(?:tournament|competition|event)/i
+    };
+  }
+
+  /**
+   * Enhanced query analysis with data source routing
+   */
+  async analyzeQuery(question) {
+    try {
+      console.log('🔍 Starting enhanced query analysis...');
+      
+      const analysis = {
+        type: 'general',
+        dataSources: [],
+        entities: {
+          players: [],
+          tournaments: [],
+          metrics: [],
+          timeframe: null,
+          surface: null
+        },
+        confidence: 0.5,
+        intent: 'General tennis question',
+        needsLiveData: false,
+        needsHistoricalData: false,
+        needsCombinedData: false
+      };
+
+      // Determine data source requirements
+      analysis.needsLiveData = this.queryPatterns.currentRankings.test(question) || 
+                              this.queryPatterns.liveMatches.test(question);
+      
+      analysis.needsHistoricalData = this.queryPatterns.historicalRankings.test(question) ||
+                                    this.queryPatterns.matchHistory.test(question) ||
+                                    this.queryPatterns.careerStats.test(question);
+      
+      analysis.needsCombinedData = this.queryPatterns.playerProfile.test(question) ||
+                                  this.queryPatterns.tournamentAnalysis.test(question);
+
+      // Determine query type
+      if (analysis.needsLiveData && !analysis.needsHistoricalData) {
+        analysis.type = 'live_data';
+        analysis.dataSources = ['sportsradar'];
+      } else if (analysis.needsHistoricalData && !analysis.needsLiveData) {
+        analysis.type = 'historical_data';
+        analysis.dataSources = ['github'];
+      } else if (analysis.needsCombinedData || (analysis.needsLiveData && analysis.needsHistoricalData)) {
+        analysis.type = 'combined_data';
+        analysis.dataSources = ['sportsradar', 'github'];
+      } else {
+        analysis.type = 'general';
+        analysis.dataSources = ['github']; // Default to historical for general queries
+      }
+
+      // Extract entities using AI
+      const entityAnalysis = await this.extractEntities(question);
+      analysis.entities = { ...analysis.entities, ...entityAnalysis.entities };
+      analysis.confidence = Math.max(analysis.confidence, entityAnalysis.confidence);
+      analysis.intent = entityAnalysis.intent;
+
+      console.log('✅ Enhanced query analysis completed:', analysis);
+      return analysis;
+      
+    } catch (error) {
+      console.error('❌ Enhanced query analysis error:', error);
+      return {
+        type: 'general',
+        dataSources: ['github'],
+        entities: { players: [], tournaments: [], metrics: [], timeframe: null, surface: null },
+        confidence: 0.5,
+        intent: 'General tennis question',
+        needsLiveData: false,
+        needsHistoricalData: true,
+        needsCombinedData: false
+      };
+    }
+  }
+
+  /**
+   * Extract entities from question using AI
+   */
+  async extractEntities(question) {
+    try {
+      const prompt = `
+        Analyze this tennis question and extract key entities:
+        
+        Question: "${question}"
+        
+        Return ONLY a valid JSON object with this exact structure:
+        {
+          "entities": {
+            "players": ["player names mentioned"],
+            "tournaments": ["tournament names mentioned"],
+            "metrics": ["statistical metrics mentioned"],
+            "timeframe": "time period if mentioned",
+            "surface": "court surface if mentioned"
+          },
+          "confidence": 0.0-1.0,
+          "intent": "brief description of what the user wants to know"
+        }
+        
+        Do NOT include any text before or after the JSON. Return ONLY the JSON object.
+      `;
+
+      const response = await this.groq.chat.completions.create({
+        model: "llama-3.1-8b-instant",
+        messages: [
+          {
+            role: "system",
+            content: "You are a tennis statistics expert. Extract key entities from tennis questions."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 500
+      });
+
+      const responseText = response.choices[0].message.content.trim();
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('Could not parse JSON from response');
+      }
+      
+    } catch (error) {
+      console.error('Entity extraction error:', error);
+      return {
+        entities: { players: [], tournaments: [], metrics: [], timeframe: null, surface: null },
+        confidence: 0.5,
+        intent: 'General tennis question'
+      };
+    }
+  }
+
+  /**
+   * Main query processing method with smart routing
+   */
+  async processQuery(question, userId = null) {
+    try {
+      console.log(`🎾 Processing enhanced query: "${question}"`);
+      
+      // Initialize database connection
+      await initializeDatabase();
+      
+      // Analyze query to determine data sources and routing
+      const analysis = await this.analyzeQuery(question);
+      
+      // Check cache first
+      const cacheKey = analysis.type;
+      const cachedResult = enhancedQueryCache.get(question, cacheKey, analysis.dataSources.join('_'));
+      if (cachedResult) {
+        return {
+          ...cachedResult,
+          fromCache: true,
+          cacheStats: enhancedQueryCache.getStats()
+        };
+      }
+      
+      // Route to appropriate data source(s)
+      let result;
+      if (analysis.dataSources.includes('sportsradar') && analysis.dataSources.includes('github')) {
+        result = await this.processCombinedQuery(question, analysis);
+      } else if (analysis.dataSources.includes('sportsradar')) {
+        result = await this.processLiveDataQuery(question, analysis);
+      } else {
+        result = await this.processHistoricalDataQuery(question, analysis);
+      }
+      
+      // Cache the result
+      enhancedQueryCache.set(question, cacheKey, analysis.dataSources.join('_'), result);
+      
+      return {
+        ...result,
+        queryAnalysis: analysis,
+        dataSources: analysis.dataSources,
+        cacheStats: enhancedQueryCache.getStats()
+      };
+      
+    } catch (error) {
+      console.error('❌ Enhanced query processing error:', error);
+      
+      // Fallback to basic query
+      try {
+        const fallbackResult = await this.processFallbackQuery(question);
+        return {
+          ...fallbackResult,
+          queryType: 'fallback',
+          confidence: 0.3,
+          error: error.message
+        };
+      } catch (fallbackError) {
+        return {
+          answer: "I'm having trouble processing your tennis question right now. Please try again later.",
+          data: null,
+          queryType: 'error',
+          confidence: 0,
+          error: error.message
+        };
+      }
+    }
+  }
+
+  /**
+   * Process live data queries (Sportsradar)
+   */
+  async processLiveDataQuery(question, analysis) {
+    console.log('⚡ Processing live data query...');
+    
+    try {
+      // Generate SQL query for live data
+      const sqlQuery = await this.generateLiveDataSQL(question, analysis);
+      
+      // Execute query
+      const queryResult = await this.executeQuery(sqlQuery);
+      
+      // Generate answer
+      const answer = await this.generateLiveDataAnswer(question, queryResult, analysis);
+      
+      return {
+        answer,
+        data: queryResult,
+        queryType: 'live_data',
+        confidence: analysis.confidence,
+        dataSource: 'sportsradar',
+        lastUpdated: enhancedDataSync.getSyncStatus().lastLiveSync
+      };
+      
+    } catch (error) {
+      console.error('Live data query error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Process historical data queries (GitHub)
+   */
+  async processHistoricalDataQuery(question, analysis) {
+    console.log('📚 Processing historical data query...');
+    
+    try {
+      // Generate SQL query for historical data
+      const sqlQuery = await this.generateHistoricalDataSQL(question, analysis);
+      
+      // Execute query
+      const queryResult = await this.executeQuery(sqlQuery);
+      
+      // Generate answer
+      const answer = await this.generateHistoricalDataAnswer(question, queryResult, analysis);
+      
+      return {
+        answer,
+        data: queryResult,
+        queryType: 'historical_data',
+        confidence: analysis.confidence,
+        dataSource: 'github',
+        lastUpdated: enhancedDataSync.getSyncStatus().lastHistoricalSync
+      };
+      
+    } catch (error) {
+      console.error('Historical data query error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Process combined data queries (both sources)
+   */
+  async processCombinedQuery(question, analysis) {
+    console.log('🔄 Processing combined data query...');
+    
+    try {
+      // Get data from both sources
+      const [liveResult, historicalResult] = await Promise.all([
+        this.processLiveDataQuery(question, { ...analysis, dataSources: ['sportsradar'] }),
+        this.processHistoricalDataQuery(question, { ...analysis, dataSources: ['github'] })
+      ]);
+      
+      // Combine and analyze results
+      const combinedData = this.combineDataSources(liveResult.data, historicalResult.data);
+      const combinedAnswer = await this.generateCombinedAnswer(question, combinedData, analysis);
+      
+      return {
+        answer: combinedAnswer,
+        data: combinedData,
+        queryType: 'combined_data',
+        confidence: Math.max(liveResult.confidence, historicalResult.confidence),
+        dataSource: 'hybrid',
+        liveData: liveResult.data,
+        historicalData: historicalResult.data,
+        lastUpdated: {
+          live: liveResult.lastUpdated,
+          historical: historicalResult.lastUpdated
+        }
+      };
+      
+    } catch (error) {
+      console.error('Combined query error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate SQL query for live data
+   */
+  async generateLiveDataSQL(question, analysis) {
+    // Use existing SQL generation logic but focus on live data
+    const lowerQuestion = question.toLowerCase();
+    
+    if (lowerQuestion.includes('rank') || lowerQuestion.includes('ranking')) {
+      return this.generateRankingQuery(question, analysis, true);
+    }
+    
+    // Default live data query
+    return `
+      SELECT p.name, r.ranking, r.points, r.tour, r.ranking_date, r.data_source
+      FROM rankings r 
+      JOIN players p ON r.player_id = p.id 
+      WHERE r.is_current = true 
+      AND r.data_source = 'sportsradar'
+      ORDER BY r.ranking 
+      LIMIT 10
+    `;
+  }
+
+  /**
+   * Generate SQL query for historical data
+   */
+  async generateHistoricalDataSQL(question, analysis) {
+    const lowerQuestion = question.toLowerCase();
+    
+    if (lowerQuestion.includes('rank') || lowerQuestion.includes('ranking')) {
+      return this.generateRankingQuery(question, analysis, false);
+    }
+    
+    // Default historical data query
+    return `
+      SELECT p.name, r.ranking, r.points, r.tour, r.ranking_date, r.data_source
+      FROM rankings r 
+      JOIN players p ON r.player_id = p.id 
+      WHERE r.data_source = 'github'
+      ORDER BY r.ranking_date DESC, r.ranking 
+      LIMIT 10
+    `;
+  }
+
+  /**
+   * Generate ranking query based on question type
+   */
+  generateRankingQuery(question, analysis, isLive = false) {
+    const lowerQuestion = question.toLowerCase();
+    const dataSource = isLive ? 'sportsradar' : 'github';
+    const currentFilter = isLive ? 'AND r.is_current = true' : '';
+    
+    // Extract ranking numbers
+    const rankingNumbers = question.match(/\b(\d+)\b/g) || [];
+    const isNumberOne = /number\s*one|#1|rank\s*1/i.test(question);
+    const isTopQuery = /top\s*(\d+)/i.test(question);
+    
+    if (isNumberOne) {
+      return `
+        SELECT p.name, r.ranking, r.points, r.tour, r.ranking_date, r.data_source
+        FROM rankings r 
+        JOIN players p ON r.player_id = p.id 
+        WHERE r.ranking = 1 
+        AND r.data_source = '${dataSource}'
+        ${currentFilter}
+        ORDER BY r.ranking_date DESC
+        LIMIT 1
+      `;
+    }
+    
+    if (isTopQuery) {
+      const topNumber = question.match(/top\s*(\d+)/i)?.[1] || 5;
+      return `
+        SELECT p.name, r.ranking, r.points, r.tour, r.ranking_date, r.data_source
+        FROM rankings r 
+        JOIN players p ON r.player_id = p.id 
+        WHERE r.data_source = '${dataSource}'
+        ${currentFilter}
+        ORDER BY r.ranking 
+        LIMIT ${parseInt(topNumber)}
+      `;
+    }
+    
+    if (rankingNumbers.length > 0) {
+      const rankings = rankingNumbers.map(num => parseInt(num)).sort((a, b) => a - b);
+      return `
+        SELECT p.name, r.ranking, r.points, r.tour, r.ranking_date, r.data_source
+        FROM rankings r 
+        JOIN players p ON r.player_id = p.id 
+        WHERE r.ranking IN (${rankings.join(', ')})
+        AND r.data_source = '${dataSource}'
+        ${currentFilter}
+        ORDER BY r.ranking
+      `;
+    }
+    
+    // Default ranking query
+    return `
+      SELECT p.name, r.ranking, r.points, r.tour, r.ranking_date, r.data_source
+      FROM rankings r 
+      JOIN players p ON r.player_id = p.id 
+      WHERE r.data_source = '${dataSource}'
+      ${currentFilter}
+      ORDER BY r.ranking 
+      LIMIT 10
+    `;
+  }
+
+  /**
+   * Execute SQL query
+   */
+  async executeQuery(sqlQuery) {
+    if (!database.pool) {
+      await database.connect(false);
+    }
+    
+    try {
+      const result = await database.query(sqlQuery);
+      return result.rows;
+    } catch (error) {
+      console.error('SQL execution error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate answer for live data
+   */
+  async generateLiveDataAnswer(question, data, analysis) {
+    if (!data || data.length === 0) {
+      return "I don't have current live data to answer that question right now.";
+    }
+
+    const lowerQuestion = question.toLowerCase();
+    
+    if (lowerQuestion.includes('rank') || lowerQuestion.includes('ranking')) {
+      return this.generateDirectRankingAnswer(question, data);
+    }
+    
+    // Default live data answer
+    return `Based on the latest live data: ${data[0].name} is currently ranked #${data[0].ranking} with ${data[0].points} points.`;
+  }
+
+  /**
+   * Generate answer for historical data
+   */
+  async generateHistoricalDataAnswer(question, data, analysis) {
+    if (!data || data.length === 0) {
+      return "I don't have historical data to answer that question right now.";
+    }
+
+    const lowerQuestion = question.toLowerCase();
+    
+    if (lowerQuestion.includes('historical') || lowerQuestion.includes('trend')) {
+      return `Based on historical data: ${data[0].name} has been ranked as high as #${data[0].ranking} with ${data[0].points} points.`;
+    }
+    
+    // Default historical data answer
+    return `Based on historical data: ${data[0].name} was ranked #${data[0].ranking} with ${data[0].points} points.`;
+  }
+
+  /**
+   * Generate combined answer
+   */
+  async generateCombinedAnswer(question, data, analysis) {
+    if (!data || data.length === 0) {
+      return "I don't have enough data to provide a comprehensive answer right now.";
+    }
+
+    return `Based on both current and historical data: ${data[0].name} is currently performing well with a ranking of #${data[0].ranking}.`;
+  }
+
+  /**
+   * Combine data from multiple sources
+   */
+  combineDataSources(liveData, historicalData) {
+    // Simple combination logic - in practice, this would be more sophisticated
+    const combined = [...(liveData || []), ...(historicalData || [])];
+    
+    // Remove duplicates based on player name and ranking
+    const unique = combined.filter((item, index, self) => 
+      index === self.findIndex(t => t.name === item.name && t.ranking === item.ranking)
+    );
+    
+    return unique;
+  }
+
+  /**
+   * Generate direct ranking answer
+   */
+  generateDirectRankingAnswer(question, data) {
+    if (!data || data.length === 0) {
+      return "No ranking data available.";
+    }
+
+    const lowerQuestion = question.toLowerCase();
+    const player = data[0];
+
+    if (lowerQuestion.includes('rank 1') || lowerQuestion.includes('number 1') || lowerQuestion.includes('#1')) {
+      return `${player.name} is ranked #${player.ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
+    }
+
+    if (data.length > 1) {
+      const topNumber = lowerQuestion.match(/top\s*(\d+)/)?.[1] || data.length;
+      const players = data.slice(0, parseInt(topNumber)).map(p => 
+        `${p.name} (#${p.ranking}, ${p.points ? p.points.toLocaleString() : 'N/A'} points)`
+      ).join(', ');
+      return `Top ${Math.min(parseInt(topNumber), data.length)}: ${players}.`;
+    }
+
+    return `${player.name} is ranked #${player.ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
+  }
+
+  /**
+   * Process fallback query
+   */
+  async processFallbackQuery(question) {
+    console.log('🔄 Processing fallback query...');
+    
+    try {
+      // Simple fallback query
+      const result = await database.query(`
+        SELECT p.name, r.ranking, r.points, r.tour, r.data_source
+        FROM rankings r 
+        JOIN players p ON r.player_id = p.id 
+        ORDER BY r.ranking 
+        LIMIT 5
+      `);
+      
+      return {
+        answer: `Here are some tennis rankings: ${result.rows.map(p => `${p.name} (#${p.ranking})`).join(', ')}.`,
+        data: result.rows,
+        queryType: 'fallback',
+        confidence: 0.5,
+        dataSource: 'database'
+      };
+    } catch (error) {
+      return {
+        answer: "I'm having trouble accessing tennis data right now. Please try again later.",
+        data: null,
+        queryType: 'fallback',
+        confidence: 0.3,
+        dataSource: 'none'
+      };
+    }
+  }
+
+  /**
+   * Get query handler statistics
+   */
+  getStats() {
+    return {
+      cache: enhancedQueryCache.getStats(),
+      sync: enhancedDataSync.getSyncStatus(),
+      models: dataModels.getAvailableModels()
+    };
+  }
+}
+
+module.exports = new EnhancedTennisQueryHandler();
