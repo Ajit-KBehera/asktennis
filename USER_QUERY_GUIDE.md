@@ -129,7 +129,7 @@ Examples:
 - `atp_matches_qual_chall_1978.csv` through `atp_matches_qual_chall_2024.csv`
 
 ### **Match Charting & Point-by-Point**
-✅ **Fully Supported (5,000+ Matches)**
+✅ **Fully Supported (10,000+ Matches)**
 
 ```
 Examples:
@@ -138,23 +138,32 @@ Examples:
 - "Detailed match statistics"
 - "Serve statistics analysis"
 - "Rally length analysis"
+- "Djokovic match charting"
+- "Wimbledon charted matches"
+- "Match breakdown analysis"
 ```
 
 **Data Source**: GitHub MatchChartingProject  
 **Coverage**: 
-- **Men's Matches**: 5,000+ charted matches
-- **Women's Matches**: 2,500+ charted matches
+- **Men's Matches**: 6,639 charted matches
+- **Women's Matches**: 3,491 charted matches
+- **Point Data**: 725,794 charted points (2020s decade)
 - **Time Periods**: 2010s, 2020s, and pre-2009
 - **Data Types**: Point-by-point, shot analysis, serve stats, rally data
 
-**Available Files**:
-- `charting-m-matches.csv` (981KB) - Men's match metadata
-- `charting-w-matches.csv` (511KB) - Women's match metadata
-- `charting-m-points-2010s.csv` (33MB) - Men's point data 2010s
-- `charting-m-points-2020s.csv` (46MB) - Men's point data 2020s
-- `charting-w-points-2010s.csv` (17MB) - Women's point data 2010s
-- `charting-w-points-2020s.csv` (26MB) - Women's point data 2020s
-- 20+ specialized statistics files (serve, return, rally, etc.)
+**Available Data**:
+- **Match Metadata**: Tournament, date, surface, court, umpire, players
+- **Point-by-Point**: Score progression, serve/return data, point winners
+- **Serve Analysis**: First serve, second serve, serve direction
+- **Match Details**: Best of sets, tiebreaks, charted by information
+- **Player Information**: Hand preferences, match statistics
+
+**Query Capabilities**:
+- Player charted matches lookup
+- Tournament charted matches search  
+- Point-by-point match analysis
+- Serve and return statistics
+- Match breakdown and detailed analysis
 
 ### **Grand Slam Point-by-Point Data**
 ✅ **Fully Supported (2011-2024)**
@@ -289,10 +298,10 @@ If you encounter issues or have questions about data availability:
 
 - **Live Rankings**: ✅ Working (Sportsradar API)
 - **Tournament Winners**: ✅ Working (2022-2023)
-- **Historical Rankings**: ⚠️ Available but not integrated (GitHub)
-- **Match Results**: ⚠️ Available but not integrated (GitHub)
-- **Player Profiles**: ⚠️ Basic only (Sportsradar)
-- **Match Charting**: ⚠️ Available but not integrated (GitHub)
+- **Historical Rankings**: ✅ Working (GitHub data)
+- **Match Results**: ✅ Working (GitHub data)
+- **Player Profiles**: ✅ Working (GitHub data)
+- **Match Charting**: ✅ Working (GitHub data)
 - **Grand Slam Data**: ⚠️ Available but not integrated (GitHub)
 
 ## 📊 Data Summary
@@ -300,7 +309,8 @@ If you encounter issues or have questions about data availability:
 ### **Total Available Data**
 - **500+ CSV Files** across 4 repositories
 - **56+ Years** of tennis data (1968-2024)
-- **5,000+ Charted Matches** with point-by-point data
+- **10,000+ Charted Matches** with point-by-point data
+- **725,000+ Charted Points** with detailed analysis
 - **All Grand Slams** with detailed match data (2011-2024)
 - **Complete ATP/WTA** match results and rankings
 
@@ -310,6 +320,14 @@ If you encounter issues or have questions about data availability:
 - **Match Charting**: ~200MB of point-by-point data
 - **Grand Slam Data**: ~500MB of tournament data
 - **Total**: ~1GB of comprehensive tennis data
+
+### **Data Processing Success**
+- **92,341 ATP Rankings** with player names resolved
+- **65,989 ATP Players** with full profiles
+- **6,639 Men's Charted Matches** with metadata
+- **3,491 Women's Charted Matches** with metadata
+- **461,897 Men's Charted Points** (2020s decade)
+- **263,897 Women's Charted Points** (2020s decade)
 
 ---
 
