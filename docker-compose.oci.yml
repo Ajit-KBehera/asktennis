@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: askt_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-asktennis}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: askt_app
+    depends_on:
+      - db
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@db:5432/asktennis}
+      REDIS_URL: ${REDIS_URL:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      SPORTRADAR_API_KEY: ${SPORTRADAR_API_KEY:-}
+    ports:
+      - "3000:3000"
+    command: ["node", "server.js"]
+
+volumes:
+  db_data:
+
+
