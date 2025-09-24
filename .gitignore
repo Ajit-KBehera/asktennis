@@ -106,6 +106,9 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 
+# Data folder (tennis datasets)
+data/
+
 # Redis dump files
 dump.rdb
 

@@ -1,0 +1,31 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json ./
+
+# Install dependencies
+RUN npm ci && npm cache clean --force
+
+# Copy source code
+COPY server.js ./
+COPY server-local.js ./
+COPY src ./src
+COPY seed.js ./
+COPY Procfile ./
+
+# Copy React build
+COPY client/build ./client/build
+
+# Copy data folder for local development
+COPY data ./data
+
+# Expose application port
+ENV PORT=3000
+EXPOSE 3000
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --retries=5 CMD node -e "require('http').get({host:'127.0.0.1',port:process.env.PORT,path:'/'}, r=>process.exit(0)).on('error',()=>process.exit(1))"
+
+CMD ["node", "server-local.js"]

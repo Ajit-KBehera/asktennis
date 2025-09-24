@@ -2,6 +2,57 @@ const Groq = require('groq-sdk');
 const database = require('./database');
 const dataSync = require('./dataSync');
 
+// Query historical matches from the database
+async function queryHistoricalMatches(question) {
+  try {
+    const lowerQuestion = question.toLowerCase();
+    
+    // Extract year from question
+    const yearMatch = lowerQuestion.match(/\b(19|20)\d{2}\b/);
+    const year = yearMatch ? parseInt(yearMatch[0]) : null;
+    
+    // Extract tournament name
+    let tournamentName = '';
+    if (lowerQuestion.includes('roland garros') || lowerQuestion.includes('french open')) {
+      tournamentName = 'French Open';
+    } else if (lowerQuestion.includes('wimbledon')) {
+      tournamentName = 'Wimbledon';
+    } else if (lowerQuestion.includes('us open')) {
+      tournamentName = 'US Open';
+    } else if (lowerQuestion.includes('australian open')) {
+      tournamentName = 'Australian Open';
+    }
+    
+    if (!tournamentName) {
+      return null;
+    }
+    
+    // Query the database
+    let query = `
+      SELECT * FROM historical_matches 
+      WHERE tournament_name = $1 AND round = 'F'
+    `;
+    let params = [tournamentName];
+    
+    if (year) {
+      query += ' AND year = $2';
+      params.push(year);
+    }
+    
+    const result = await database.query(query, params);
+    
+    if (result.rows.length > 0) {
+      const match = result.rows[0];
+      return `${match.winner_name} won the ${match.tournament_name} ${match.year} final, defeating ${match.loser_name} ${match.score}.`;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('❌ Error querying historical matches:', error.message);
+    return null;
+  }
+}
+
 // Initialize database connection once at startup
 let dbInitialized = false;
 async function initializeDatabase() {
@@ -179,7 +230,7 @@ class TennisQueryHandler {
         const dbResult = await this.queryDatabaseDirectly(question);
         if (dbResult && dbResult.length > 0) {
           return {
-            answer: this.generateSimpleAnswer(question, dbResult),
+            answer: await this.generateSimpleAnswer(question, dbResult),
             data: dbResult,
             queryType: 'database_only',
             confidence: 0.7,
@@ -228,7 +279,7 @@ class TennisQueryHandler {
         const fallbackData = await this.queryDatabaseDirectly(question);
         if (fallbackData && fallbackData.length > 0) {
           console.log('Found data via direct query, generating simple answer...');
-          const simpleAnswer = this.generateSimpleAnswer(question, fallbackData);
+          const simpleAnswer = await this.generateSimpleAnswer(question, fallbackData);
           return {
             answer: simpleAnswer,
             data: fallbackData,
@@ -240,7 +291,7 @@ class TennisQueryHandler {
         } else {
           // No data from direct query either, generate appropriate response
           console.log('No data from direct query either, generating appropriate response...');
-          const simpleAnswer = this.generateSimpleAnswer(question, []);
+          const simpleAnswer = await this.generateSimpleAnswer(question, []);
           return {
             answer: simpleAnswer,
             data: [],
@@ -294,7 +345,7 @@ class TennisQueryHandler {
         if (fallbackData && fallbackData.length > 0) {
           console.log('Found data via direct query fallback');
           return {
-            answer: this.generateSimpleAnswer(question, fallbackData),
+            answer: await this.generateSimpleAnswer(question, fallbackData),
             data: fallbackData,
             queryType: 'database_fallback',
             confidence: 0.6,
@@ -692,7 +743,7 @@ class TennisQueryHandler {
         const fallbackData = await this.queryDatabaseDirectly(question);
         if (fallbackData && fallbackData.length > 0) {
           console.log('Found data via direct query, generating simple answer...');
-          return this.generateSimpleAnswer(question, fallbackData);
+          return await this.generateSimpleAnswer(question, fallbackData);
         }
         return "I don't have enough data to answer that question right now. The database might be empty or the query didn't match any records.";
       }
@@ -1492,7 +1543,7 @@ class TennisQueryHandler {
   /**
    * Generate simple answer without AI
    */
-  generateSimpleAnswer(question, data) {
+  async generateSimpleAnswer(question, data) {
     if (!data || data.length === 0) {
       const lowerQuestion = question.toLowerCase();
       
@@ -1500,7 +1551,19 @@ class TennisQueryHandler {
       if (lowerQuestion.includes('won') || lowerQuestion.includes('winner') || 
           lowerQuestion.includes('us open') || lowerQuestion.includes('wimbledon') || 
           lowerQuestion.includes('french open') || lowerQuestion.includes('australian open') ||
-          lowerQuestion.includes('grand slam') || lowerQuestion.includes('tournament')) {
+          lowerQuestion.includes('grand slam') || lowerQuestion.includes('tournament') ||
+          lowerQuestion.includes('roland garros')) {
+        
+        // Try to query historical matches
+        try {
+          const historicalResult = await queryHistoricalMatches(question);
+          if (historicalResult) {
+            return historicalResult;
+          }
+        } catch (error) {
+          console.log('⚠️  Historical query failed:', error.message);
+        }
+        
         return "I don't have access to tournament results or match outcomes in the current data. I can only provide current player rankings and basic player information.";
       }
       
