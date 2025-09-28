@@ -19,13 +19,13 @@ An intelligent tennis statistics query system that allows users to ask natural l
 - **Tennis-themed Branding**: Custom tennis ball favicon and green theme
 - **Real-time Suggestions**: Helpful query suggestions as you type
 
-## 🏗️ Architecture
+## 🏗️ Current Architecture
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   User Query    │───▶│   React Frontend │───▶│   Express API   │
 │ "What is the    │    │   (TypeScript)   │    │   (Node.js)     │
-│ rank of Arthur  │    │                  │    │                 │
+│ rank of Arthur  │    │   localhost:3000 │    │   localhost:5000│
 │ Fils?"          │    │                  │    │                 │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                                          │
@@ -39,6 +39,7 @@ An intelligent tennis statistics query system that allows users to ask natural l
                                 ▼
                        ┌──────────────────┐
                        │  PostgreSQL DB   │
+                       │  (Docker)        │
                        │  (Tennis Data)   │
                        └──────────────────┘
                                 │
@@ -59,12 +60,12 @@ An intelligent tennis statistics query system that allows users to ask natural l
 
 ### **Backend**
 - **Node.js** with Express
-- **PostgreSQL** for tennis data storage
+- **PostgreSQL** for tennis data storage (Docker)
 - **Groq API** with Llama 3.1-8b-instant model
 - **Sportradar API** for live tennis data
 
 ### **Deployment**
-- **Railway** for hosting
+- **Docker** for containerization
 - **GitHub** for version control
 - **Custom favicon** and PWA support
 
@@ -89,8 +90,9 @@ An intelligent tennis statistics query system that allows users to ask natural l
 
 ### **Prerequisites**
 - Node.js 18+ 
-- PostgreSQL database
+- Docker and Docker Compose
 - Groq API key
+- Sportradar API key (optional)
 
 ### **Installation**
 
@@ -119,13 +121,17 @@ An intelligent tennis statistics query system that allows users to ask natural l
    Edit `.env` with your configuration:
    ```env
    GROQ_API_KEY=your_groq_api_key_here
-   DATABASE_URL=your_postgresql_connection_string
+   DATABASE_URL=postgresql://username:password@localhost:5432/asktennis
    SPORTRADAR_API_KEY=your_sportradar_api_key
    ```
 
-4. **Initialize the database**
+4. **Start with Docker Compose**
    ```bash
-   node seed.js
+   # Start PostgreSQL database
+   docker-compose -f docker-compose.local.yml up -d
+   
+   # Initialize the database
+   node load-complete-tennis-data.js
    ```
 
 5. **Start the development server**
@@ -181,7 +187,10 @@ asktennis/
 │   ├── dataSync.js         # Data synchronization
 │   └── sportsradar.js      # API integration
 ├── server.js               # Express server
+├── load-complete-tennis-data.js  # Data loading script
 ├── package.json            # Dependencies
+├── docker-compose.local.yml     # Local Docker setup
+├── Dockerfile.local        # Local Docker configuration
 └── README.md               # This file
 ```
 
@@ -202,13 +211,19 @@ The system uses PostgreSQL with tables for:
 
 ## 🚀 Deployment
 
-### **Railway Deployment**
-1. Connect your GitHub repository to Railway
-2. Set environment variables in Railway dashboard
-3. Railway will automatically deploy from the `main` branch
-4. Your app will be available at the provided Railway URL
+### **Local Development with Docker**
+```bash
+# Start database
+docker-compose -f docker-compose.local.yml up -d
 
-### **Manual Deployment**
+# Load data
+node load-complete-tennis-data.js
+
+# Start application
+npm start
+```
+
+### **Production Deployment**
 ```bash
 # Build the client
 cd client
@@ -235,7 +250,7 @@ npm start
 - ✅ PostgreSQL database integration
 - ✅ Sportradar API integration
 - ✅ Responsive React frontend
-- ✅ Railway deployment ready
+- ✅ Docker deployment ready
 
 ## 🤝 Contributing
 
@@ -253,7 +268,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - **Groq** for fast AI inference
 - **Sportradar** for comprehensive tennis data
-- **Railway** for seamless deployment
+- **Docker** for containerization
 - **AskCricinfo** for UI/UX inspiration
 
 ---

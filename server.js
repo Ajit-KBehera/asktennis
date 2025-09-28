@@ -7,9 +7,9 @@ const { Server } = require('socket.io');
 const path = require('path');
 require('dotenv').config();
 
-const tennisQueryHandler = require('./src/queryHandler');
+const TennisQueryHandler = require('./src/queryHandler');
+const tennisQueryHandler = new TennisQueryHandler();
 const database = require('./src/database');
-const cache = require('./src/cache');
 const dataSync = require('./src/dataSync');
 
 const app = express();
@@ -54,46 +54,17 @@ app.post('/api/query', async (req, res) => {
       });
     }
 
-    // Check cache first (but skip for ranking queries to ensure fresh data)
-    const lowerQuestion = actualQuestion.toLowerCase().trim();
-    const isRankingQuery = lowerQuestion.includes('ranking') || lowerQuestion.includes('rank') || 
-                          lowerQuestion.includes('#1') || lowerQuestion.includes('current');
-    
-    let cachedResult = null;
-    if (!isRankingQuery) {
-      const cacheKey = `query:${lowerQuestion}`;
-      cachedResult = await cache.get(cacheKey);
-      
-      if (cachedResult) {
-        return res.json({
-          question: actualQuestion,
-          answer: cachedResult.answer,
-          data: cachedResult.data,
-          cached: true,
-          timestamp: new Date().toISOString()
-        });
-      }
-    }
 
     // Process the query
     console.log('About to call tennisQueryHandler.processQuery');
     const result = await tennisQueryHandler.processQuery(actualQuestion, userId);
     console.log('Result from processQuery:', result);
     
-    // Cache the result for 1 hour (but not for ranking queries)
-    if (!isRankingQuery) {
-      const cacheKey = `query:${lowerQuestion}`;
-      await cache.set(cacheKey, {
-        answer: result.answer,
-        data: result.data
-      }, 3600);
-    }
 
     res.json({
       question: actualQuestion,
       answer: result.answer,
       data: result.data,
-      cached: false,
       timestamp: new Date().toISOString()
     });
 
@@ -115,40 +86,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Cache management endpoints
-app.post('/api/cache/clear', async (req, res) => {
-  try {
-    await cache.flush();
-    res.json({ 
-      success: true, 
-      message: 'Cache cleared successfully',
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to clear cache',
-      message: error.message
-    });
-  }
-});
-
-app.get('/api/cache/stats', async (req, res) => {
-  try {
-    const stats = await cache.getStats();
-    res.json({ 
-      success: true, 
-      stats,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to get cache stats',
-      message: error.message
-    });
-  }
-});
 
 // Simple health check for Railway
 app.get('/health', (req, res) => {
@@ -165,15 +102,6 @@ app.get('/api/debug', (req, res) => {
   });
 });
 
-// Clear cache endpoint
-app.post('/api/clear-cache', async (req, res) => {
-  try {
-    await cache.flush();
-    res.json({ message: 'Cache cleared successfully' });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to clear cache' });
-  }
-});
 
 // Test endpoint to verify server is running updated code
 app.get('/api/test', (req, res) => {
@@ -397,12 +325,11 @@ if (fs.existsSync(indexPath)) {
 
 const PORT = process.env.PORT || 5000;
 
-// Initialize database and cache connections
+// Initialize database connection
 async function initialize() {
   try {
     await database.connect();
-    await cache.connect();
-    console.log('Database and cache connections established');
+    console.log('Database connection established');
     
     // Start auto-sync if Sportsradar is configured (non-blocking)
     if (dataSync.isSportsradarAvailable()) {

@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: asktennis_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: asktennis
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data:/docker-entrypoint-initdb.d/data
+    ports:
+      - "5432:5432"
+    # Memory optimization for large datasets
+    command: >
+      postgres
+      -c shared_buffers=1GB
+      -c effective_cache_size=3GB
+      -c maintenance_work_mem=256MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=64MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c max_connections=200
+
+
+volumes:
+  postgres_data:

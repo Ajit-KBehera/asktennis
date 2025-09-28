@@ -92,6 +92,142 @@ class Database {
         );
       `);
 
+      // Create tennis_matches_simple table for the complete dataset
+      // Main matches table (optimized for queries) - as per plan with partitioning
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS tennis_matches (
+          id SERIAL,
+          match_id VARCHAR(50) UNIQUE,
+          tourney_id VARCHAR(20),
+          tourney_name VARCHAR(100),
+          surface VARCHAR(20),
+          draw_size INTEGER,
+          tourney_level VARCHAR(50),
+          year INTEGER,
+          month INTEGER,
+          date DATE,
+          match_num INTEGER,
+          round VARCHAR(20),
+          minutes INTEGER,
+          best_of INTEGER,
+          tour VARCHAR(10),
+          data_source VARCHAR(50),
+          created_at TIMESTAMP DEFAULT NOW(),
+          PRIMARY KEY (id, year)
+        ) PARTITION BY RANGE (year);
+      `);
+
+      // Match results table - as per plan
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS match_results (
+          id SERIAL PRIMARY KEY,
+          match_id VARCHAR(50),
+          winner_id VARCHAR(20),
+          loser_id VARCHAR(20),
+          winner_rank INTEGER,
+          loser_rank INTEGER,
+          set1 VARCHAR(20),
+          set2 VARCHAR(20),
+          set3 VARCHAR(20),
+          set4 VARCHAR(20),
+          set5 VARCHAR(20),
+          FOREIGN KEY (match_id) REFERENCES tennis_matches(match_id)
+        );
+      `);
+
+      // Match statistics table - as per plan
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS match_statistics (
+          id SERIAL PRIMARY KEY,
+          match_id VARCHAR(50),
+          player_id VARCHAR(20),
+          is_winner BOOLEAN,
+          aces INTEGER,
+          double_faults INTEGER,
+          service_points INTEGER,
+          first_serves_in INTEGER,
+          first_serves_won INTEGER,
+          second_serves_won INTEGER,
+          service_games INTEGER,
+          break_points_saved INTEGER,
+          break_points_faced INTEGER,
+          rank_points INTEGER,
+          FOREIGN KEY (match_id) REFERENCES tennis_matches(match_id)
+        );
+      `);
+
+      // Keep the existing tennis_matches_simple table for backward compatibility
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS tennis_matches_simple (
+          id SERIAL PRIMARY KEY,
+          tourney_id VARCHAR(50),
+          tourney_name VARCHAR(200),
+          surface VARCHAR(50),
+          draw_size INTEGER,
+          tourney_level VARCHAR(100),
+          year INTEGER,
+          month INTEGER,
+          date DATE,
+          match_num INTEGER,
+          winner VARCHAR(200),
+          loser VARCHAR(200),
+          winner_id DECIMAL,
+          loser_id DECIMAL,
+          winner_rank DECIMAL,
+          loser_rank DECIMAL,
+          player1_id DECIMAL,
+          player1_seed DECIMAL,
+          player1_entry VARCHAR(20),
+          player1_name VARCHAR(200),
+          player1_hand VARCHAR(10),
+          player1_ht DECIMAL,
+          player1_ioc VARCHAR(10),
+          player1_age DECIMAL,
+          player2_id DECIMAL,
+          player2_seed DECIMAL,
+          player2_entry VARCHAR(20),
+          player2_name VARCHAR(200),
+          player2_hand VARCHAR(10),
+          player2_ht DECIMAL,
+          player2_ioc VARCHAR(10),
+          player2_age DECIMAL,
+          set1 VARCHAR(50),
+          set2 VARCHAR(50),
+          set3 VARCHAR(50),
+          set4 VARCHAR(50),
+          set5 VARCHAR(50),
+          best_of INTEGER,
+          round VARCHAR(50),
+          minutes INTEGER,
+          winner_ace INTEGER,
+          winner_df INTEGER,
+          winner_svpt INTEGER,
+          winner_1stIn INTEGER,
+          winner_1stWon INTEGER,
+          winner_2ndWon INTEGER,
+          winner_SvGms INTEGER,
+          winner_bpSaved INTEGER,
+          winner_bpFaced INTEGER,
+          loser_ace INTEGER,
+          loser_df INTEGER,
+          loser_svpt INTEGER,
+          loser_1stIn INTEGER,
+          loser_1stWon INTEGER,
+          loser_2ndWon INTEGER,
+          loser_SvGms INTEGER,
+          loser_bpSaved INTEGER,
+          loser_bpFaced INTEGER,
+          player1_rank DECIMAL,
+          player1_rank_points DECIMAL,
+          player2_rank DECIMAL,
+          player2_rank_points DECIMAL,
+          tour VARCHAR(20),
+          data_source VARCHAR(100),
+          match_id VARCHAR(100),
+          created_at TIMESTAMP DEFAULT NOW()
+        );
+      `);
+
       await client.query(`
         CREATE TABLE IF NOT EXISTS competitions (
           id VARCHAR(50) PRIMARY KEY,
@@ -338,6 +474,9 @@ class Database {
       // Create indexes for better performance (after migrations)
       await this.createIndexes(client);
 
+      // Create partitions for better performance (after indexes)
+      await this.createPartitions(client);
+
       console.log('✅ Database schema initialized');
       
     } catch (error) {
@@ -475,11 +614,97 @@ class Database {
         CREATE INDEX IF NOT EXISTS idx_venues_country ON venues(country_code);
         CREATE INDEX IF NOT EXISTS idx_complex_venues_complex ON complex_venues(complex_id);
       `);
+
+      // Create indexes for tennis_matches table (from implementation plan)
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_year ON tennis_matches(year);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_tourney ON tennis_matches(tourney_name);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_surface ON tennis_matches(surface);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_round ON tennis_matches(round);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_date ON tennis_matches(date);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_tourney_year ON tennis_matches(tourney_name, year);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_surface_year ON tennis_matches(surface, year);
+      `);
+
+      // Create indexes for match_results table (from implementation plan)
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_match_results_winner ON match_results(winner_id);
+        CREATE INDEX IF NOT EXISTS idx_match_results_loser ON match_results(loser_id);
+        CREATE INDEX IF NOT EXISTS idx_match_results_match_id ON match_results(match_id);
+      `);
+
+      // Create indexes for match_statistics table (from implementation plan)
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_match_statistics_player ON match_statistics(player_id);
+        CREATE INDEX IF NOT EXISTS idx_match_statistics_match_id ON match_statistics(match_id);
+        CREATE INDEX IF NOT EXISTS idx_match_statistics_winner ON match_statistics(is_winner);
+      `);
+
+      // Create indexes for tennis_matches_simple table (backward compatibility)
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_simple_year ON tennis_matches_simple(year);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_simple_tourney ON tennis_matches_simple(tourney_name);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_simple_surface ON tennis_matches_simple(surface);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_simple_round ON tennis_matches_simple(round);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_simple_winner ON tennis_matches_simple(winner);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_simple_loser ON tennis_matches_simple(loser);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_simple_date ON tennis_matches_simple(date);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_simple_tourney_year ON tennis_matches_simple(tourney_name, year);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_simple_winner_year ON tennis_matches_simple(winner, year);
+        CREATE INDEX IF NOT EXISTS idx_tennis_matches_simple_surface_year ON tennis_matches_simple(surface, year);
+      `);
       
       console.log('✅ Database indexes created');
     } catch (error) {
       console.error('❌ Index creation failed:', error);
       // Don't throw error for indexes - they might fail if they already exist
+    }
+  }
+
+  async createPartitions(client) {
+    try {
+      console.log('🔄 Creating database partitions...');
+      
+      // Check if tennis_matches table is already partitioned
+      const partitionCheck = await client.query(`
+        SELECT COUNT(*) as count 
+        FROM pg_class 
+        WHERE relname = 'tennis_matches' 
+        AND relkind = 'p'
+      `);
+      
+      if (partitionCheck.rows[0].count === '0') {
+        console.log('⚠️  tennis_matches table is not partitioned. Skipping partition creation.');
+        console.log('   Note: To enable partitioning, the table needs to be recreated.');
+        return;
+      }
+      
+      // Create year-based partitions for tennis_matches table
+      const currentYear = new Date().getFullYear();
+      const startYear = 2000; // Start partitioning from 2000
+      
+      for (let year = startYear; year <= currentYear + 1; year++) {
+        const nextYear = year + 1;
+        const tableName = `tennis_matches_${year}`;
+        
+        await client.query(`
+          CREATE TABLE IF NOT EXISTS ${tableName} PARTITION OF tennis_matches
+          FOR VALUES FROM (${year}) TO (${nextYear});
+        `);
+        
+        console.log(`✅ Created partition: ${tableName}`);
+      }
+      
+      // Create a default partition for future years
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS tennis_matches_default PARTITION OF tennis_matches DEFAULT;
+      `);
+      
+      console.log('✅ Database partitions created');
+    } catch (error) {
+      console.error('❌ Partition creation failed:', error.message);
+      console.log('   Note: This is expected if the table is not partitioned yet.');
+      // Don't throw error for partitions - they might fail if they already exist
     }
   }
 

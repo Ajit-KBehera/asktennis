@@ -1,0 +1,45 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install system dependencies for large data processing
+RUN apk add --no-cache \
+    postgresql-client \
+    python3 \
+    make \
+    g++
+
+# Copy package files
+COPY package.json package-lock.json ./
+
+# Install dependencies with production optimizations
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy source code
+COPY server.js ./
+COPY src ./src
+COPY Procfile ./
+
+# Copy React build
+COPY client/build ./client/build
+
+# Copy data folder for production
+COPY data ./data
+
+# Copy production data loader
+COPY load-complete-tennis-data-production.js ./
+
+# Set production environment
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
+# Expose application port
+EXPOSE 3000
+
+# Healthcheck for production
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD node -e "require('http').get({host:'127.0.0.1',port:process.env.PORT,path:'/health'}, r=>process.exit(0)).on('error',()=>process.exit(1))"
+
+# Production command
+CMD ["node", "server.js"]

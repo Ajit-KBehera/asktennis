@@ -13,22 +13,20 @@ const CHUNK_SIZE = 5000; // Process 5k records at a time
 const BATCH_SIZE = 500;   // Insert in batches of 500
 const MAX_RECORDS = 5000; // Limit for initial testing
 
-// Create optimized database schema
+// Create optimized database schema for complete tennis data
 async function createCompleteTennisSchema() {
   console.log('🏗️  Creating complete tennis database schema...');
   
   try {
     // Drop existing tables if they exist
-    await pool.query('DROP TABLE IF EXISTS match_statistics CASCADE');
-    await pool.query('DROP TABLE IF EXISTS match_results CASCADE');
+    await pool.query('DROP TABLE IF EXISTS tennis_matches_simple CASCADE');
     await pool.query('DROP TABLE IF EXISTS tennis_players CASCADE');
-    await pool.query('DROP TABLE IF EXISTS tennis_matches CASCADE');
+    await pool.query('DROP TABLE IF EXISTS tennis_tournaments CASCADE');
     
-    // Main matches table
+    // Main matches table - simplified for the complete dataset
     await pool.query(`
-      CREATE TABLE tennis_matches (
+      CREATE TABLE tennis_matches_simple (
         id SERIAL PRIMARY KEY,
-        match_id VARCHAR(50) UNIQUE,
         tourney_id VARCHAR(20),
         tourney_name VARCHAR(100),
         surface VARCHAR(20),
@@ -38,11 +36,61 @@ async function createCompleteTennisSchema() {
         month INTEGER,
         date DATE,
         match_num INTEGER,
+        winner VARCHAR(100),
+        loser VARCHAR(100),
+        winner_id DECIMAL,
+        loser_id DECIMAL,
+        winner_rank DECIMAL,
+        loser_rank DECIMAL,
+        player1_id DECIMAL,
+        player1_seed DECIMAL,
+        player1_entry VARCHAR(10),
+        player1_name VARCHAR(100),
+        player1_hand VARCHAR(5),
+        player1_ht DECIMAL,
+        player1_ioc VARCHAR(3),
+        player1_age DECIMAL,
+        player2_id DECIMAL,
+        player2_seed DECIMAL,
+        player2_entry VARCHAR(10),
+        player2_name VARCHAR(100),
+        player2_hand VARCHAR(5),
+        player2_ht DECIMAL,
+        player2_ioc VARCHAR(3),
+        player2_age DECIMAL,
+        set1 VARCHAR(20),
+        set2 VARCHAR(20),
+        set3 VARCHAR(20),
+        set4 VARCHAR(20),
+        set5 VARCHAR(20),
+        best_of INTEGER,
         round VARCHAR(20),
         minutes INTEGER,
-        best_of INTEGER,
+        winner_ace INTEGER,
+        winner_df INTEGER,
+        winner_svpt INTEGER,
+        winner_1stIn INTEGER,
+        winner_1stWon INTEGER,
+        winner_2ndWon INTEGER,
+        winner_SvGms INTEGER,
+        winner_bpSaved INTEGER,
+        winner_bpFaced INTEGER,
+        loser_ace INTEGER,
+        loser_df INTEGER,
+        loser_svpt INTEGER,
+        loser_1stIn INTEGER,
+        loser_1stWon INTEGER,
+        loser_2ndWon INTEGER,
+        loser_SvGms INTEGER,
+        loser_bpSaved INTEGER,
+        loser_bpFaced INTEGER,
+        player1_rank DECIMAL,
+        player1_rank_points DECIMAL,
+        player2_rank DECIMAL,
+        player2_rank_points DECIMAL,
         tour VARCHAR(10),
         data_source VARCHAR(50),
+        match_id VARCHAR(50),
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);

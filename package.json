@@ -15,13 +15,13 @@
   "dependencies": {
     "axios": "^1.6.2",
     "cors": "^2.8.5",
+    "csv-parser": "^3.2.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
     "groq-sdk": "^0.7.0",
     "helmet": "^7.1.0",
-    "pg": "^8.11.3",
-    "redis": "^4.6.10",
+    "pg": "^8.16.3",
     "socket.io": "^4.7.4"
   },
   "devDependencies": {
