@@ -133,3 +133,4 @@ junit.xml
 # Misc
 *.tsbuildinfo
 
+data/
