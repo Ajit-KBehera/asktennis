@@ -44,17 +44,18 @@ app.post('/api/query', async (req, res) => {
   try {
     console.log('=== QUERY ENDPOINT CALLED ===');
     console.log('Request body:', req.body);
-    const { question, userId } = req.body;
-    console.log('Question:', question);
+    const { question, query, userId } = req.body;
+    const actualQuestion = question || query;
+    console.log('Question:', actualQuestion);
     
-    if (!question || question.trim().length === 0) {
+    if (!actualQuestion || actualQuestion.trim().length === 0) {
       return res.status(400).json({ 
         error: 'Please provide a valid question' 
       });
     }
 
     // Check cache first (but skip for ranking queries to ensure fresh data)
-    const lowerQuestion = question.toLowerCase().trim();
+    const lowerQuestion = actualQuestion.toLowerCase().trim();
     const isRankingQuery = lowerQuestion.includes('ranking') || lowerQuestion.includes('rank') || 
                           lowerQuestion.includes('#1') || lowerQuestion.includes('current');
     
@@ -65,7 +66,7 @@ app.post('/api/query', async (req, res) => {
       
       if (cachedResult) {
         return res.json({
-          question,
+          question: actualQuestion,
           answer: cachedResult.answer,
           data: cachedResult.data,
           cached: true,
@@ -76,7 +77,7 @@ app.post('/api/query', async (req, res) => {
 
     // Process the query
     console.log('About to call tennisQueryHandler.processQuery');
-    const result = await tennisQueryHandler.processQuery(question, userId);
+    const result = await tennisQueryHandler.processQuery(actualQuestion, userId);
     console.log('Result from processQuery:', result);
     
     // Cache the result for 1 hour (but not for ranking queries)
@@ -89,7 +90,7 @@ app.post('/api/query', async (req, res) => {
     }
 
     res.json({
-      question,
+      question: actualQuestion,
       answer: result.answer,
       data: result.data,
       cached: false,

@@ -2,7 +2,7 @@ const Groq = require('groq-sdk');
 const database = require('./database');
 const dataSync = require('./dataSync');
 
-// Query historical matches from the database
+// Query historical matches from the complete tennis database
 async function queryHistoricalMatches(question) {
   try {
     const lowerQuestion = question.toLowerCase();
@@ -27,10 +27,11 @@ async function queryHistoricalMatches(question) {
       return null;
     }
     
-    // Query the database
+    // Query the complete tennis database
     let query = `
-      SELECT * FROM historical_matches 
-      WHERE tournament_name = $1 AND round = 'F'
+      SELECT tourney_name, year, winner, loser, set1, set2, set3, set4, set5
+      FROM tennis_matches_simple 
+      WHERE tourney_name = $1 AND round = 'F'
     `;
     let params = [tournamentName];
     
@@ -43,7 +44,11 @@ async function queryHistoricalMatches(question) {
     
     if (result.rows.length > 0) {
       const match = result.rows[0];
-      return `${match.winner_name} won the ${match.tournament_name} ${match.year} final, defeating ${match.loser_name} ${match.score}.`;
+      const score = [match.set1, match.set2, match.set3, match.set4, match.set5]
+        .filter(set => set && set !== '')
+        .join(' ');
+      
+      return `${match.winner} won the ${match.tourney_name} ${match.year} final, defeating ${match.loser} ${score}.`;
     }
     
     return null;
