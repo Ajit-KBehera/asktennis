@@ -2118,7 +2118,11 @@ class TennisQueryHandler {
     }
     
     const match = result.rows[0];
-    return `The winner of ${tournament} ${year} was ${match.winner_id} (${match.set1}, ${match.set2}, ${match.set3 || ''}).`;
+    const score = [match.set1, match.set2, match.set3, match.set4, match.set5]
+      .filter(set => set && set !== '')
+      .join(', ');
+    
+    return `The winner of ${tournament} ${year} was ${match.winner}, defeating ${match.loser} ${score}.`;
   }
 
   formatHeadToHeadResult(result, player1, player2) {
