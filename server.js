@@ -7,10 +7,9 @@ const { Server } = require('socket.io');
 const path = require('path');
 require('dotenv').config();
 
-const TennisQueryHandler = require('./src/queryHandler');
-const tennisQueryHandler = new TennisQueryHandler();
-const database = require('./src/database');
-const dataSync = require('./src/dataSync');
+const { tennisQueryHandler, getHealthStatus, getDatabaseStatus, clearCaches, getSystemStats } = require('./src/queryHandler');
+const databaseConnection = require('./src/database/connection');
+const csvDataLoader = require('./src/csvDataLoader');
 
 const app = express();
 const server = createServer(app);
@@ -63,8 +62,8 @@ app.post('/api/query', async (req, res) => {
 
     res.json({
       question: actualQuestion,
-      answer: result.answer,
-      data: result.data,
+      answer: result,
+      data: result,
       timestamp: new Date().toISOString()
     });
 
@@ -76,14 +75,18 @@ app.post('/api/query', async (req, res) => {
   }
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    uptime: process.uptime()
-  });
+// Enhanced health check endpoint
+app.get('/api/health', async (req, res) => {
+  try {
+    const healthStatus = await getHealthStatus();
+    res.json(healthStatus);
+  } catch (error) {
+    res.status(500).json({
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 
@@ -112,12 +115,14 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Data sync endpoints
-app.get('/api/sync/status', (req, res) => {
+// CSV data loading endpoints
+app.get('/api/data/status', (req, res) => {
   try {
-    const status = dataSync.getSyncStatus();
+    const status = csvDataLoader.getStatus();
     res.json({
       success: true,
+      message: 'CSV data loading system active',
+      dataSource: 'local_csv',
       ...status
     });
   } catch (error) {
@@ -128,13 +133,18 @@ app.get('/api/sync/status', (req, res) => {
   }
 });
 
-app.post('/api/sync/force', async (req, res) => {
+app.post('/api/data/load', async (req, res) => {
   try {
-    console.log('🔄 Force sync requested via API');
-    const result = await dataSync.forceSync();
-    res.json(result);
+    console.log('🔄 CSV data loading requested via API');
+    const result = await csvDataLoader.loadAllData();
+    res.json({
+      success: true,
+      message: 'CSV data loading completed',
+      dataSource: 'local_csv',
+      ...result
+    });
   } catch (error) {
-    console.error('Force sync failed:', error);
+    console.error('CSV data loading failed:', error);
     res.status(500).json({
       success: false,
       error: error.message
@@ -142,30 +152,21 @@ app.post('/api/sync/force', async (req, res) => {
   }
 });
 
-app.get('/api/sync/test', async (req, res) => {
+app.get('/api/data/test', async (req, res) => {
   try {
-    const sportsradar = require('./src/sportsradar');
-    if (!sportsradar.isConfigured()) {
-      return res.json({
-        success: false,
-        error: 'Sportsradar API key not configured',
-        configured: false
-      });
-    }
-
-    // Test API connection
-    const testData = await sportsradar.getATPRankings();
+    // Test database connection and data availability
+    const dbStatus = await getDatabaseStatus();
     res.json({
       success: true,
       configured: true,
-      testData: testData ? testData.slice(0, 3) : null, // Return first 3 rankings as test
-      message: 'Sportsradar API connection successful'
+      database: dbStatus,
+      message: 'Local CSV data system active'
     });
   } catch (error) {
     res.status(500).json({
       success: false,
       error: error.message,
-      configured: true
+      configured: false
     });
   }
 });
@@ -253,6 +254,65 @@ app.get('/api/test-groq', async (req, res) => {
   }
 });
 
+// Enhanced system status endpoint
+app.get('/api/status', async (req, res) => {
+  try {
+    const systemStats = await getSystemStats();
+    res.json(systemStats);
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Load sample data endpoint
+app.post('/api/data/load-sample', async (req, res) => {
+  try {
+    console.log('📝 Loading sample data...');
+    await csvDataLoader.createSampleData();
+    res.json({
+      success: true,
+      message: 'Sample data created successfully',
+      dataSource: 'sample_csv'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create sample data',
+      error: error.message
+    });
+  }
+});
+
+// Database status endpoint
+app.get('/api/database/status', async (req, res) => {
+  try {
+    const dbStatus = await getDatabaseStatus();
+    res.json(dbStatus);
+  } catch (error) {
+    res.status(500).json({
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Clear caches endpoint
+app.post('/api/cache/clear', async (req, res) => {
+  try {
+    const result = await clearCaches();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // WebSocket connection for real-time updates
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
@@ -325,22 +385,31 @@ if (fs.existsSync(indexPath)) {
 
 const PORT = process.env.PORT || 5000;
 
-// Initialize database connection
+// Initialize database connection and query handler
 async function initialize() {
   try {
-    await database.connect();
-    console.log('Database connection established');
+    // Initialize the enhanced query handler (includes database connection)
+    await tennisQueryHandler.initialize();
+    console.log('✅ Enhanced query handler initialized');
     
-    // Start auto-sync if Sportsradar is configured (non-blocking)
-    if (dataSync.isSportsradarAvailable()) {
-      console.log('🔄 Starting automatic data synchronization...');
-      // Don't await this - let it run in background
-      dataSync.startAutoSync().catch(error => {
-        console.error('Auto-sync failed (non-critical):', error.message);
-      });
-    } else {
-      console.log('⚠️  Sportsradar not configured - using static data only');
+    // Initialize CSV data loading system
+    console.log('📊 CSV data loading system ready');
+    
+    // Create sample data if none exists
+    if (!csvDataLoader.hasCSVData()) {
+      console.log('📝 Creating sample CSV data...');
+      await csvDataLoader.createSampleData();
     }
+    
+    // Check if CSV data is available but don't auto-load
+    if (csvDataLoader.hasCSVData()) {
+      console.log('📁 Complete tennis dataset available (1.05GB)');
+      console.log('⚠️  Auto-loading disabled due to memory constraints');
+      console.log('💡 Use /api/data/load endpoint to load data manually');
+      console.log('💡 Or use /api/data/load-sample to load sample data first');
+    }
+    
+    console.log('✅ Local database with CSV data active');
   } catch (error) {
     console.error('Failed to initialize connections:', error);
     // Don't exit - continue with limited functionality

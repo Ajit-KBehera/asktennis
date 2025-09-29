@@ -1,45 +1,45 @@
 FROM node:20-alpine
 
+# Set working directory
 WORKDIR /app
 
-# Install system dependencies for large data processing
+# Install system dependencies
 RUN apk add --no-cache \
+    curl \
     postgresql-client \
-    python3 \
-    make \
-    g++
+    && rm -rf /var/cache/apk/*
 
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install dependencies with production optimizations
+# Install dependencies
 RUN npm ci --only=production && npm cache clean --force
 
 # Copy source code
 COPY server.js ./
 COPY src ./src
-COPY Procfile ./
 
 # Copy React build
 COPY client/build ./client/build
 
-# Copy data folder for production
-COPY data ./data
+# Create logs directory
+RUN mkdir -p /app/logs
 
-# Copy production data loader
-COPY load-complete-tennis-data-production.js ./
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
 
-# Set production environment
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+# Change ownership of the app directory
+RUN chown -R nextjs:nodejs /app
+USER nextjs
 
 # Expose application port
-EXPOSE 3000
+ENV PORT=5000
+EXPOSE 5000
 
-# Healthcheck for production
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD node -e "require('http').get({host:'127.0.0.1',port:process.env.PORT,path:'/health'}, r=>process.exit(0)).on('error',()=>process.exit(1))"
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
+    CMD curl -f http://localhost:5000/api/health || exit 1
 
-# Production command
+# Start the application
 CMD ["node", "server.js"]

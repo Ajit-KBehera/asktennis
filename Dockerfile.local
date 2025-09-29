@@ -10,16 +10,13 @@ RUN npm ci && npm cache clean --force
 
 # Copy source code
 COPY server.js ./
-COPY server-local.js ./
 COPY src ./src
-COPY seed.js ./
-COPY Procfile ./
 
 # Copy React build
 COPY client/build ./client/build
 
-# Copy data folder for local development
-COPY data ./data
+# Create data directory for local development
+RUN mkdir -p ./data
 
 # Expose application port
 ENV PORT=3000

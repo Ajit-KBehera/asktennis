@@ -1,2150 +1,249 @@
-const Groq = require('groq-sdk');
-const database = require('./database');
-const dataSync = require('./dataSync');
-const SportsradarAPI = require('./sportsradar');
+/**
+ * Enhanced Tennis Query Handler for Docker Database Integration
+ * Comprehensive overhaul with proper architecture, error handling, and Docker support
+ */
 
-// Query historical matches from the complete tennis database
-async function queryHistoricalMatches(question) {
-  try {
-    const lowerQuestion = question.toLowerCase();
-    
-    // Extract year from question
-    const yearMatch = lowerQuestion.match(/\b(19|20)\d{2}\b/);
-    const year = yearMatch ? parseInt(yearMatch[0]) : null;
-    
-    // Extract tournament name
-    let tournamentName = '';
-    if (lowerQuestion.includes('roland garros') || lowerQuestion.includes('french open')) {
-      tournamentName = 'Roland Garros';
-    } else if (lowerQuestion.includes('wimbledon')) {
-      tournamentName = 'Wimbledon';
-    } else if (lowerQuestion.includes('us open')) {
-      tournamentName = 'US Open';
-    } else if (lowerQuestion.includes('australian open')) {
-      tournamentName = 'Australian Open';
-    }
-    
-    if (!tournamentName) {
-      return null;
-    }
-    
-    // Query the complete tennis database
-    let query = `
-      SELECT tourney_name, year, winner, loser, set1, set2, set3, set4, set5
-      FROM tennis_matches_simple 
-      WHERE tourney_name ILIKE $1 AND round = 'F'
-    `;
-    let params = [`%${tournamentName}%`];
-    
-    if (year) {
-      query += ' AND year = $2';
-      params.push(year);
-    }
-    
-    const result = await database.query(query, params);
-    
-    if (result.rows.length > 0) {
-      const match = result.rows[0];
-      const score = [match.set1, match.set2, match.set3, match.set4, match.set5]
-        .filter(set => set && set !== '')
-        .join(' ');
-      
-      return `${match.winner} won the ${match.tourney_name} ${match.year} final, defeating ${match.loser} ${score}.`;
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('❌ Error querying historical matches:', error.message);
-    return null;
-  }
-}
-
-// Initialize database connection once at startup
-let dbInitialized = false;
-async function initializeDatabase() {
-  if (!dbInitialized) {
-    try {
-      await database.connect(true); // Initialize schema on first connection
-      dbInitialized = true;
-      console.log('🚀 Database initialized for query processing');
-    } catch (error) {
-      console.error('❌ Failed to initialize database:', error.message);
-    }
-  }
-}
-
+const databaseConnection = require('./database/connection');
+const queryService = require('./services/queryService');
+const databaseConfig = require('./config/database');
 
 class TennisQueryHandler {
   constructor() {
-    // Only initialize Groq if API key is configured
-    if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'your_groq_api_key_here') {
-      this.groq = new Groq({
-        apiKey: process.env.GROQ_API_KEY
-      });
-    } else {
-      this.groq = null;
-    }
-    
-    // Tennis-specific query patterns and responses - Enhanced with XSD data
-    this.queryPatterns = {
-      playerStats: /(?:who|which player|what player).*(?:most|highest|best|top).*(?:aces|wins|titles|rankings?|points?)/i,
-      headToHead: /(?:head.?to.?head|record|against|vs|versus).*(?:djokovic|nadal|federer|murray|serena|venus|sharapova)/i,
-      tournamentRecords: /(?:wimbledon|us open|french open|australian open|grand slam|masters|atp|wta).*(?:most|winner|champion|title)/i,
-      performanceMetrics: /(?:first serve|second serve|break point|ace|double fault|percentage|rate)/i,
-      historicalData: /(?:youngest|oldest|first|last|earliest|latest|when|year)/i,
-      surfaceAnalysis: /(?:clay|grass|hard court|surface|indoor|outdoor)/i,
-      rankingQueries: /(?:ranking|rank|number one|top.*rank|position)/i,
-      playerInfo: /(?:tell me about|information about|who is|profile of).*(?:player|tennis player)/i,
-      tournamentInfo: /(?:tournament|competition|event).*(?:happening|upcoming|current|schedule)/i,
-      countryQueries: /(?:players from|tennis players in|from country|nationality)/i,
-      ageQueries: /(?:youngest|oldest|age|born|birth)/i,
-      prizeMoney: /(?:prize money|earnings|salary|income|wealthy|richest)/i,
-      
-      // New patterns based on XSD data structures
-      playerProfile: /(?:handedness|playing hand|height|weight|pro year|turned pro|career high|highest ranking)/i,
-      competitionInfo: /(?:competition|tournament).*(?:info|details|information|status|surface|prize money|venue)/i,
-      seasonData: /(?:season|year).*(?:standings|competitors|summaries|results)/i,
-      liveMatches: /(?:live|current|ongoing|happening now|in progress).*(?:match|game|event)/i,
-      scheduleQueries: /(?:schedule|upcoming|next|today|tomorrow).*(?:match|game|event|tournament)/i,
-      venueQueries: /(?:venue|stadium|court|location|where).*(?:match|tournament|event)/i,
-      raceRankings: /(?:race.*ranking|year.*to.*date|ytd|season.*ranking)/i,
-      doubleRankings: /(?:doubles|double.*ranking|pair|team).*(?:ranking|rank)/i,
-      matchStatistics: /(?:match.*stat|game.*stat|detailed.*stat|serve.*stat|return.*stat)/i,
-      timelineQueries: /(?:timeline|events|points|game.*by.*game|set.*by.*set)/i,
-      competitorHistory: /(?:match.*history|previous.*matches|past.*results|career.*record)/i,
-      versusRecords: /(?:head.*to.*head|h2h|versus|against).*(?:record|history|matches)/i,
-      complexQueries: /(?:complex|venue.*complex|stadium.*complex|tennis.*center)/i,
-      sportEventQueries: /(?:sport.*event|match.*event|game.*event).*(?:summary|details|info)/i
-    };
-
-    // No global timeouts in original demo mode
+    this.isInitialized = false;
+    this.initializationPromise = null;
   }
 
-  detectQueryType(question) {
-    const lowerQuestion = question.toLowerCase();
-    
-    // Detect query type for caching
-    if (lowerQuestion.includes('number 1') || lowerQuestion.includes('number one') || lowerQuestion.includes('#1')) {
-      return 'number_one';
+  async initialize() {
+    if (this.isInitialized) {
+      return true;
     }
-    if (lowerQuestion.includes('top 5') || lowerQuestion.includes('top 10')) {
-      return 'top_players';
+
+    if (this.initializationPromise) {
+      return this.initializationPromise;
     }
-    if (lowerQuestion.includes('ranking') || lowerQuestion.includes('rank')) {
-      return 'ranking';
-    }
-    if (lowerQuestion.includes('sinner') || lowerQuestion.includes('alcaraz') || lowerQuestion.includes('djokovic')) {
-      return 'player_info';
-    }
-    
-    return 'general';
+
+    this.initializationPromise = this._performInitialization();
+    return this.initializationPromise;
   }
 
-  async processQuery(question, userId = null) {
-    const runCore = async () => {
-      try {
-      console.log(`Processing query: "${question}"`);
-      
-      // Initialize database connection once
-      await initializeDatabase();
-      
-      // Try smart query routing for historical data first
-      const historicalResult = await this.queryHistoricalData(question);
-      if (historicalResult) {
-        return {
-          answer: historicalResult,
-          data: [],
-          fromHistoricalData: true
-        };
-      }
-      
-      // Check if Groq API key is configured
-      console.log('API Key check:', {
-        hasKey: !!process.env.GROQ_API_KEY,
-        keyValue: process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.substring(0, 10) + '...' : 'undefined',
-        isPlaceholder: process.env.GROQ_API_KEY === 'your_groq_api_key_here',
-        fullKey: process.env.GROQ_API_KEY
-      });
-      
-      if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'your_groq_api_key_here') {
-        console.log('❌ Groq API key not configured, trying database-only mode');
-        console.log('API key value:', process.env.GROQ_API_KEY);
-        
-        // Try to answer with database data only (no AI)
-        console.log('🔍 Calling queryDatabaseDirectly with question:', question);
-        const dbResult = await this.queryDatabaseDirectly(question);
-        console.log('🔍 queryDatabaseDirectly result:', dbResult);
-        if (dbResult && dbResult.length > 0) {
-          return {
-            answer: await this.generateSimpleAnswer(question, dbResult),
-            data: dbResult,
-            queryType: 'database_only',
-            confidence: 0.7,
-            dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
-            lastUpdated: dataSync.getSyncStatus().lastSync
-          };
-        }
-        
-        // If no database data, use fallback
-        console.log('🚨 FALLBACK RESPONSE TRIGGERED - This should not happen if database has data');
-        return {
-          answer: "I don't have data for US Open 2014 in my current database. My tennis database contains matches from 2018-2024, but doesn't include 2014 data. For US Open 2014, Marin Čilić won the men's singles title, defeating Kei Nishikori in the final. Serena Williams won the women's singles title, defeating Caroline Wozniacki in the final.",
-          data: null,
-          queryType: 'fallback',
-          confidence: 0.5,
-          dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
-          lastUpdated: dataSync.getSyncStatus().lastSync
-        };
-      }
-      
-      console.log('API key is configured, proceeding with AI processing');
-      
-      // Analyze the query to determine intent
-      console.log('Starting query analysis...');
-      const queryAnalysis = await this.analyzeQuery(question);
-      console.log('Query analysis completed:', queryAnalysis);
-      
-      // Generate SQL query based on analysis
-      console.log('Generating SQL query...');
-      const sqlQuery = await this.generateSQLQuery(question, queryAnalysis);
-      console.log('SQL query generated:', sqlQuery);
-      
-      // Execute the query
-      console.log('Executing database query...');
-      let queryResult;
-      try {
-        queryResult = await this.executeQuery(sqlQuery);
-        console.log('Database query result:', queryResult);
-      } catch (error) {
-        console.log('AI query failed, trying direct database query...');
-        queryResult = [];
-      }
-      
-      // If no data from AI query, try direct database query
-      if (!queryResult || queryResult.length === 0) {
-        console.log('No data from AI query, trying direct database query...');
-        const fallbackData = await this.queryDatabaseDirectly(question);
-        if (fallbackData && fallbackData.length > 0) {
-          console.log('Found data via direct query, generating simple answer...');
-          const simpleAnswer = await this.generateSimpleAnswer(question, fallbackData);
-          return {
-            answer: simpleAnswer,
-            data: fallbackData,
-            queryType: queryAnalysis.type,
-            confidence: 0.8, // Lower confidence for fallback
-            dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
-            lastUpdated: dataSync.getSyncStatus().lastSync
-          };
-        } else {
-          // No data from direct query either, generate appropriate response
-          console.log('No data from direct query either, generating appropriate response...');
-          const simpleAnswer = await this.generateSimpleAnswer(question, []);
-          return {
-            answer: simpleAnswer,
-            data: [],
-            queryType: queryAnalysis.type,
-            confidence: 0.5, // Lower confidence for no data
-            dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
-            lastUpdated: dataSync.getSyncStatus().lastSync
-          };
-        }
-      }
-      
-      // Generate natural language response
-      console.log('Generating AI answer...');
-      
-      // For ranking questions, use direct answer format instead of AI
-      const lowerQuestion = question.toLowerCase();
-      if (lowerQuestion.includes('rank') || lowerQuestion.includes('ranking') || lowerQuestion.includes('number 1') || lowerQuestion.includes('#1')) {
-        console.log('Using direct answer format for ranking question');
-        const answer = this.generateDirectRankingAnswer(question, queryResult);
-        console.log('Direct ranking answer generated:', answer);
-        
-        return {
-          answer,
-          data: queryResult,
-          queryType: queryAnalysis.type,
-          confidence: queryAnalysis.confidence,
-          dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
-          lastUpdated: dataSync.getSyncStatus().lastSync
-        };
-      }
-      
-      const answer = await this.generateAnswer(question, queryResult, queryAnalysis);
-      console.log('AI answer generated:', answer);
-      
-      return {
-        answer,
-        data: queryResult,
-        queryType: queryAnalysis.type,
-        confidence: queryAnalysis.confidence,
-        dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
-        lastUpdated: dataSync.getSyncStatus().lastSync
-      };
-      
-    } catch (error) {
-      console.error('Query processing error:', error);
-      
-      // Try direct database query as fallback
-      console.log('AI processing failed, trying direct database query...');
-      try {
-        const fallbackData = await this.queryDatabaseDirectly(question);
-        if (fallbackData && fallbackData.length > 0) {
-          console.log('Found data via direct query fallback');
-          return {
-            answer: await this.generateSimpleAnswer(question, fallbackData),
-            data: fallbackData,
-            queryType: 'database_fallback',
-            confidence: 0.6,
-            dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
-            lastUpdated: dataSync.getSyncStatus().lastSync
-          };
-        }
-      } catch (fallbackError) {
-        console.error('Direct database query fallback also failed:', fallbackError);
-      }
-      
-      // Final fallback response with better error handling
-      return {
-        answer: this.generateFallbackAnswer(question, []),
-        data: null,
-        queryType: 'error',
-        confidence: 0,
-        dataSource: dataSync.isSportsradarAvailable() ? 'live' : 'static',
-        lastUpdated: dataSync.getSyncStatus().lastSync,
-        error: error.message
-      };
-    }
-    };
-
-    return runCore();
-  }
-
-
-  async analyzeQuery(question) {
+  async _performInitialization() {
     try {
-      console.log('Starting analyzeQuery with question:', question);
-      const prompt = `
-        Analyze this tennis-related question and determine the query type and key entities:
-        
-        Question: "${question}"
-        
-        Return ONLY a valid JSON object with this exact structure:
-        {
-          "type": "playerStats|headToHead|tournamentRecords|performanceMetrics|historicalData|surfaceAnalysis|rankingQueries|general",
-          "entities": {
-            "players": ["player names mentioned"],
-            "tournaments": ["tournament names mentioned"],
-            "metrics": ["statistical metrics mentioned"],
-            "timeframe": "time period if mentioned",
-            "surface": "court surface if mentioned"
-          },
-          "confidence": 0.0-1.0,
-          "intent": "brief description of what the user wants to know"
-        }
-        
-        Do NOT include any text before or after the JSON. Return ONLY the JSON object.
-        Focus on tennis-specific entities and be precise about what data is being requested.
-      `;
-
-      if (!this.groq) {
-        throw new Error('Groq API not configured');
-      }
+      console.log('🚀 Initializing Tennis Query Handler...');
       
-      const response = await this.groq.chat.completions.create({
-        model: "llama-3.1-8b-instant",
-        messages: [
-          {
-            role: "system",
-            content: "You are a tennis statistics expert. Analyze tennis questions and extract key information for database queries."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 500
-      });
-
-      const responseText = response.choices[0].message.content.trim();
-      console.log('Raw AI response:', responseText);
+      // Initialize database connection
+      await databaseConnection.connect();
       
-      // Try to extract JSON from the response
-      let analysis;
-      try {
-        analysis = JSON.parse(responseText);
-      } catch (parseError) {
-        console.log('JSON parse failed, trying to extract JSON from response...');
-        // Try to find JSON in the response
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          analysis = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error(`Could not parse JSON from response: ${responseText.substring(0, 100)}...`);
-        }
-      }
+      this.isInitialized = true;
+      console.log('✅ Tennis Query Handler initialized successfully');
       
-      // Validate and enhance analysis with pattern matching
-      for (const [type, pattern] of Object.entries(this.queryPatterns)) {
-        if (pattern.test(question)) {
-          analysis.type = type;
-          analysis.confidence = Math.max(analysis.confidence, 0.8);
-          break;
-        }
-      }
-
-      return analysis;
-      
+      return true;
     } catch (error) {
-      console.error('Query analysis error:', error);
-      console.error('Error details:', {
-        message: error.message,
-        status: error.status,
-        code: error.code
-      });
-      
-      // Fallback analysis
-      return {
-        type: 'general',
-        entities: {
-          players: [],
-          tournaments: [],
-          metrics: [],
-          timeframe: null,
-          surface: null
-        },
-        confidence: 0.5,
-        intent: 'General tennis question'
-      };
-    }
-  }
-
-  generateRankingQueryTemplate(question, analysis) {
-    // Extract ranking numbers from the question
-    const rankingNumbers = question.match(/\b(\d+)\b/g) || [];
-    const hasMultipleRankings = rankingNumbers.length > 1;
-    const hasSpecificRanking = rankingNumbers.length === 1;
-    const isTopRanking = /top\s*(\d+)/i.test(question);
-    // Fix: Use word boundaries to prevent #10 from matching #1
-    const isNumberOne = /\bnumber\s*one\b|\b#1\b|\brank\s*1\b/i.test(question);
-    
-    if (isNumberOne) {
-      return `SELECT p.name, r.ranking, r.points, 
-                     TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date 
-              FROM rankings r 
-              JOIN players p ON r.player_id = p.id 
-              WHERE r.ranking = 1 
-              AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
-              LIMIT 1`;
-    }
-    
-    if (isTopRanking) {
-      const topNumber = question.match(/top\s*(\d+)/i)?.[1] || 5;
-      return `SELECT p.name, r.ranking, r.points, 
-                     TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date 
-              FROM rankings r 
-              JOIN players p ON r.player_id = p.id 
-              WHERE r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
-              ORDER BY r.ranking 
-              LIMIT ${topNumber}`;
-    }
-    
-    if (hasMultipleRankings) {
-      const rankings = rankingNumbers.map(num => parseInt(num)).sort((a, b) => a - b);
-      return `SELECT p.name, r.ranking, r.points, 
-                     TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date 
-              FROM rankings r 
-              JOIN players p ON r.player_id = p.id 
-              WHERE r.ranking IN (${rankings.join(', ')}) 
-              AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
-              ORDER BY r.ranking`;
-    }
-    
-    if (hasSpecificRanking) {
-      const ranking = parseInt(rankingNumbers[0]);
-      return `SELECT p.name, r.ranking, r.points, 
-                     TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date 
-              FROM rankings r 
-              JOIN players p ON r.player_id = p.id 
-              WHERE r.ranking = ${ranking} 
-              AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) 
-              LIMIT 1`;
-    }
-    
-    return null; // No template match
-  }
-
-  async generateSQLQuery(question, analysis) {
-    try {
-      // Check if this is a ranking query and use template if available
-      if (analysis.type === 'rankingQueries') {
-        const templateQuery = this.generateRankingQueryTemplate(question, analysis);
-        if (templateQuery) {
-          console.log('Using ranking query template:', templateQuery);
-          return templateQuery;
-        }
-      }
-      
-      const prompt = `
-        Generate a PostgreSQL query for this tennis question:
-        
-        Question: "${question}"
-        Analysis: ${JSON.stringify(analysis)}
-        
-        Available tables:
-        - players (id, name, country, birth_date, height, weight, playing_hand, turned_pro, current_ranking, career_prize_money, tour)
-        - tournaments (id, name, type, surface, level, location, start_date, end_date, prize_money, status, current_round)
-        - matches (id, tournament_id, player1_id, player2_id, winner_id, score, duration, match_date, round, surface, status)
-        - match_stats (id, match_id, player_id, aces, double_faults, first_serve_percentage, first_serve_points_won, second_serve_points_won, break_points_saved, break_points_converted, total_points_won)
-        - rankings (id, player_id, ranking, points, ranking_date, tour)
-        
-        IMPORTANT: Use exact column names as shown above. Do NOT use 'turneds_pro' - use 'turned_pro'.
-        
-        RANKING QUERY EXAMPLES:
-        - For "who is number 1": SELECT p.name, r.ranking, r.points FROM rankings r JOIN players p ON r.player_id = p.id WHERE r.ranking = 1 AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) LIMIT 1
-        - For "who are number 2 and 4": SELECT p.name, r.ranking, r.points FROM rankings r JOIN players p ON r.player_id = p.id WHERE r.ranking IN (2, 4) AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) ORDER BY r.ranking
-        - For "current top 5": SELECT p.name, r.ranking, r.points FROM rankings r JOIN players p ON r.player_id = p.id WHERE r.ranking_date = (SELECT MAX(ranking_date) FROM rankings) ORDER BY r.ranking LIMIT 5
-        - For "who is ranked higher": Use subqueries to compare rankings
-        
-        CRITICAL RANKING RULES:
-        1. ALWAYS use the most recent ranking_date: WHERE r.ranking_date = (SELECT MAX(ranking_date) FROM rankings)
-        2. For specific rankings (like "number 2"): WHERE r.ranking = 2
-        3. For multiple rankings (like "2 and 4"): WHERE r.ranking IN (2, 4)
-        4. NEVER use JOINs between players for ranking queries - use single table with WHERE clauses
-        5. ALWAYS JOIN rankings with players: FROM rankings r JOIN players p ON r.player_id = p.id
-        
-        Return ONLY the SQL query, no explanations, no markdown formatting, no code blocks.
-        Use proper JOINs and aggregations as needed.
-        If the question asks for "most" or "highest", use ORDER BY and LIMIT.
-        If asking about specific players, use WHERE clauses with player names.
-        For Grand Slam titles, count matches won in Grand Slam tournaments (type = 'Grand Slam').
-        For tournament wins, join players with matches where player is the winner.
-        Do NOT wrap the query in backticks or any other formatting.
-      `;
-
-      if (!this.groq) {
-        throw new Error('Groq API not configured');
-      }
-      
-      const response = await this.groq.chat.completions.create({
-        model: "llama-3.1-8b-instant",
-        messages: [
-          {
-            role: "system",
-            content: "You are a SQL expert specializing in tennis statistics. Generate accurate PostgreSQL queries."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.1,
-        max_tokens: 1000
-      });
-
-      return response.choices[0].message.content.trim();
-      
-    } catch (error) {
-      console.error('SQL generation error:', error);
-      
-      // Fallback to a simple query
-      return `
-        SELECT p.name, p.country, p.current_ranking 
-        FROM players p 
-        WHERE p.name ILIKE '%${this.extractPlayerName(question)}%' 
-        LIMIT 5;
-      `;
-    }
-  }
-
-  validateSQLQuery(sqlQuery) {
-    try {
-      // Clean the SQL query first
-    let cleanSQL = sqlQuery.trim();
-    
-    // Remove markdown code blocks
-    if (cleanSQL.startsWith('```sql')) {
-      cleanSQL = cleanSQL.replace(/^```sql\s*/, '').replace(/\s*```$/, '');
-      }
-      if (cleanSQL.startsWith('```')) {
-      cleanSQL = cleanSQL.replace(/^```\s*/, '').replace(/\s*```$/, '');
-    }
-    
-      // Basic SQL validation rules
-      const validationRules = [
-        {
-          name: 'Must start with SELECT',
-          test: () => cleanSQL.toUpperCase().startsWith('SELECT'),
-          error: 'Query must start with SELECT'
-        },
-        {
-          name: 'No dangerous keywords',
-          test: () => {
-            const dangerousKeywords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'CREATE', 'TRUNCATE'];
-            const upperSQL = cleanSQL.toUpperCase();
-            return !dangerousKeywords.some(keyword => upperSQL.includes(keyword));
-          },
-          error: 'Query contains dangerous keywords (DROP, DELETE, UPDATE, etc.)'
-        },
-        {
-          name: 'Must have FROM clause',
-          test: () => cleanSQL.toUpperCase().includes('FROM'),
-          error: 'Query must contain FROM clause'
-        },
-        {
-          name: 'No semicolon injection',
-          test: () => {
-            const semicolonCount = (cleanSQL.match(/;/g) || []).length;
-            return semicolonCount <= 1; // Allow one semicolon at the end
-          },
-          error: 'Query contains multiple semicolons (potential injection)'
-        },
-        {
-          name: 'Valid table references',
-          test: () => {
-            const validTables = ['players', 'rankings', 'tournaments', 'matches', 'match_stats'];
-            const upperSQL = cleanSQL.toUpperCase();
-            // Check if query references only valid tables
-            const tableMatches = upperSQL.match(/FROM\s+(\w+)/g) || [];
-            return tableMatches.every(match => {
-              const tableName = match.replace(/FROM\s+/i, '').toLowerCase();
-              return validTables.includes(tableName);
-            });
-          },
-          error: 'Query references invalid tables'
-        },
-        {
-          name: 'No suspicious patterns',
-          test: () => {
-            const suspiciousPatterns = [
-              /--/,  // SQL comments
-              /\/\*.*\*\//,  // Block comments
-              /UNION/i,  // UNION attacks
-              /OR\s+1\s*=\s*1/i,  // SQL injection patterns
-              /AND\s+1\s*=\s*1/i
-            ];
-            return !suspiciousPatterns.some(pattern => pattern.test(cleanSQL));
-          },
-          error: 'Query contains suspicious patterns'
-        }
-      ];
-      
-      // Run all validation rules
-      for (const rule of validationRules) {
-        if (!rule.test()) {
-          console.log(`❌ SQL Validation Failed: ${rule.name} - ${rule.error}`);
-          return {
-            isValid: false,
-            error: rule.error,
-            cleanSQL: cleanSQL
-          };
-        }
-      }
-      
-      console.log('✅ SQL Query validation passed');
-      return {
-        isValid: true,
-        cleanSQL: cleanSQL
-      };
-      
-    } catch (error) {
-      console.error('SQL validation error:', error);
-      return {
-        isValid: false,
-        error: 'SQL validation failed due to parsing error',
-        cleanSQL: sqlQuery
-      };
-    }
-  }
-
-  async executeQuery(sqlQuery) {
-    // Validate SQL query before execution
-    const validation = this.validateSQLQuery(sqlQuery);
-    if (!validation.isValid) {
-      throw new Error(`Invalid SQL query: ${validation.error}`);
-    }
-    
-    // Use the cleaned SQL (already validated and cleaned)
-    sqlQuery = validation.cleanSQL;
-    
-    // Ensure database is connected (optimized - reuse existing connections)
-    if (!database.pool) {
-      console.log('🔄 Connecting to database...');
-      await database.connect(false); // Don't re-initialize schema
-    }
-    
-    // Add query timeout and optimization hints
-    const startTime = Date.now();
-    console.log('Executing SQL:', sqlQuery);
-    
-    try {
-      const result = await database.query(sqlQuery);
-      const endTime = Date.now();
-      console.log(`SQL query completed in ${endTime - startTime}ms, returned ${result.rows.length} rows`);
-      return result.rows;
-    } catch (error) {
-      const endTime = Date.now();
-      console.error(`SQL query failed after ${endTime - startTime}ms:`, error.message);
+      console.error('❌ Failed to initialize Tennis Query Handler:', error.message);
+      this.isInitialized = false;
       throw error;
     }
   }
 
-  async generateAnswer(question, data, analysis) {
+  // Main query processing method
+  async processQuery(question, userId = null) {
     try {
-      if (!data || data.length === 0) {
-        // Try to get some basic data from database
-        console.log('No data from AI query, trying direct database query...');
-        const fallbackData = await this.queryDatabaseDirectly(question);
-        if (fallbackData && fallbackData.length > 0) {
-          console.log('Found data via direct query, generating simple answer...');
-          return await this.generateSimpleAnswer(question, fallbackData);
-        }
-        return "I don't have enough data to answer that question right now. The database might be empty or the query didn't match any records.";
+      // Ensure handler is initialized
+      if (!this.isInitialized) {
+        await this.initialize();
       }
 
-      const prompt = `
-        Generate a direct, factual answer to this tennis question based on the EXACT data provided:
-        
-        Question: "${question}"
-        Data: ${JSON.stringify(data)}
-        Analysis: ${JSON.stringify(analysis)}
-        
-        CRITICAL REQUIREMENTS:
-        - Use ONLY the exact numbers, names, and values from the data above
-        - Do NOT make up or estimate any numbers
-        - If the data shows "11540" points, say "11,540" points (not "1,154")
-        - If the data shows "2" titles, say "2" titles (not "24")
-        
-        RESPONSE STYLE BASED ON QUESTION TYPE:
-        - For ranking questions (like "who is rank 1" or "what is the rank of X"): Give DIRECT, FACTUAL answers
-          Example: "Carlos Alcaraz is ranked #1 with 11,540 points"
-          DO NOT use phrases like "We've got", "As of today", "sitting pretty", "making waves", etc.
-          Just state the facts directly.
-        - For player info questions: Be slightly more conversational but still concise
-        - For tournament/historical questions: Can be more engaging and detailed
-        
-        GENERAL REQUIREMENTS:
-        - Be direct and to-the-point for factual questions
-        - Include specific numbers and statistics from the data
-        - Keep it concise but informative
-        - If showing multiple results, format them clearly
-        - Use tennis terminology appropriately
-        
-        Don't include phrases like "Based on the data", "According to the results", "Well, it's...", "We've got", "As of today", "sitting pretty", "making waves", etc. - just give the answer directly.
-        
-        FOR RANKING QUESTIONS: Answer format should be: "[Player Name] is ranked #[number] with [points] points."
-        IMPORTANT: Double-check that all numbers in your response exactly match the numbers in the data.
-      `;
-
-      if (!this.groq) {
-        throw new Error('Groq API not configured');
+      // Validate input
+      if (!question || typeof question !== 'string' || question.trim().length === 0) {
+        return {
+          error: 'Invalid query',
+          message: 'Please provide a valid question',
+          timestamp: new Date().toISOString()
+        };
       }
-      
-      const response = await this.groq.chat.completions.create({
-        model: "llama-3.1-8b-instant",
-        messages: [
-          {
-            role: "system",
-            content: "You are a tennis statistics expert providing direct, factual answers. For ranking questions, give concise, point-blank answers. For other questions, be informative but still direct. CRITICAL: Always use the exact numbers from the provided data - never estimate or make up statistics. If the data shows 11,540 points, say 11,540 points, not 1,154 points."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 500
-      });
 
-      return response.choices[0].message.content;
+      console.log(`🎾 Processing tennis query: "${question}"`);
       
+      // Process the query through the service layer
+      const result = await queryService.processQuery(question, userId);
+      
+      // Add metadata
+      const response = {
+        ...result,
+        queryId: this.generateQueryId(),
+        processedAt: new Date().toISOString(),
+        handler: 'enhanced',
+        version: '2.0.0'
+      };
+
+      console.log('✅ Query processed successfully');
+      return response;
     } catch (error) {
-      console.error('Answer generation error:', error);
-      console.error('Error details:', {
-        message: error.message,
-        status: error.status,
-        code: error.code
-      });
+      console.error('❌ Error in processQuery:', error.message);
       
-      // Fallback answer
-      return this.generateFallbackAnswer(question, data);
+      // Return structured error response
+      return {
+        error: 'Query processing failed',
+        message: 'Unable to process your tennis query at this time',
+        details: error.message,
+        timestamp: new Date().toISOString(),
+        handler: 'enhanced',
+        version: '2.0.0'
+      };
     }
   }
 
-  generateDirectRankingAnswer(question, data) {
-    if (!data || data.length === 0) {
-      return "No ranking data available.";
-    }
-
-    const lowerQuestion = question.toLowerCase();
-    const player = data[0];
-
-    // Handle "who is rank 1" or "who is number 1" questions
-    if (lowerQuestion.includes('rank 1') || lowerQuestion.includes('number 1') || lowerQuestion.includes('#1')) {
-      return `${player.name} is ranked #${player.ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
-    }
-
-    // Handle "what is the rank of [player]" questions
-    if (lowerQuestion.includes('what is the rank') || lowerQuestion.includes('rank of')) {
-      return `${player.name} is ranked #${player.ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
-    }
-
-    // Handle "who is ranked [number]" questions
-    const rankMatch = lowerQuestion.match(/ranked?\s*(\d+)/);
-    if (rankMatch) {
-      const rank = rankMatch[1];
-      return `${player.name} is ranked #${player.ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
-    }
-
-    // Handle multiple players (top 5, top 10, etc.)
-    if (data.length > 1) {
-      const topNumber = lowerQuestion.match(/top\s*(\d+)/)?.[1] || data.length;
-      const players = data.slice(0, parseInt(topNumber)).map(p => 
-        `${p.name} (#${p.ranking}, ${p.points ? p.points.toLocaleString() : 'N/A'} points)`
-      ).join(', ');
-      return `Top ${Math.min(parseInt(topNumber), data.length)}: ${players}.`;
-    }
-
-    // Default ranking response
-    return `${player.name} is ranked #${player.ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
-  }
-
-  generateFallbackAnswer(question, data) {
-    if (!data || data.length === 0) {
-      const lowerQuestion = question.toLowerCase();
-      
-      // Provide specific error messages based on query type
-      if (lowerQuestion.includes('tournament') || lowerQuestion.includes('won') || lowerQuestion.includes('winner')) {
-        return "I don't have access to tournament results or match outcomes in the current data. I can only provide current player rankings and basic player information. For tournament results, you would need access to our full match database.";
-      }
-      
-      if (lowerQuestion.includes('match') || lowerQuestion.includes('head to head') || lowerQuestion.includes('vs')) {
-        return "I don't have access to match results or head-to-head records in the current data. I can only provide current player rankings and basic player information. For match statistics, you would need access to our full match database.";
-      }
-      
-      if (lowerQuestion.includes('statistics') || lowerQuestion.includes('stats') || lowerQuestion.includes('performance')) {
-        return "I don't have access to detailed player statistics in the current data. I can only provide current player rankings and basic player information. For detailed statistics, you would need access to our full match database.";
-      }
-      
-      return "I don't have enough data to answer that question right now. I can only provide current player rankings and basic player information. For more detailed tennis data, you would need access to our full database.";
-    }
-
-    // Try to provide a more intelligent answer based on the question
-    const lowerQuestion = question.toLowerCase();
-    
-    if (lowerQuestion.includes('most') || lowerQuestion.includes('highest') || lowerQuestion.includes('best')) {
-      if (data.length > 0) {
-        const topPlayer = data[0];
-        return `Based on the available data, ${topPlayer.name || 'the top player'} appears to be leading in this category. However, I have limited data access, so this may not be the complete picture.`;
-      }
-    }
-    
-    if (lowerQuestion.includes('who') && data.length > 0) {
-      const player = data[0];
-      return `Based on the available data, ${player.name || 'the player you asked about'} is the answer. However, I have limited data access, so this may not be the complete picture.`;
-    }
-    
-    if (lowerQuestion.includes('record') || lowerQuestion.includes('against')) {
-      return "I don't have access to head-to-head records or match statistics in the current data. I can only provide current player rankings and basic player information.";
-    }
-    
-    // Default fallback with more helpful message
-    return "I can provide some basic tennis information, but I don't have access to the full database. I can only provide current player rankings and basic player information. For more detailed tennis data, you would need access to our full database.";
-  }
-
-  getSampleData() {
-    return [
-      {
-        name: "Novak Djokovic",
-        country: "SRB",
-        current_ranking: 1,
-        aces: 1250,
-        titles: 24
-      },
-      {
-        name: "Rafael Nadal",
-        country: "ESP", 
-        current_ranking: 2,
-        aces: 980,
-        titles: 22
-      }
-    ];
-  }
-
-  extractPlayerName(question) {
-    const players = ['djokovic', 'nadal', 'federer', 'murray', 'serena', 'venus', 'sharapova'];
-    const lowerQuestion = question.toLowerCase();
-    
-    for (const player of players) {
-      if (lowerQuestion.includes(player)) {
-        return player;
-      }
-    }
-    
-    return '';
-  }
-
-  /**
-   * Enhanced fallback query processing with better pattern matching and error handling
-   */
-  async queryDatabaseDirectly(question) {
+  // Health check method
+  async getHealthStatus() {
     try {
-      console.log('🔄 Using enhanced fallback query processing...');
+      const dbInfo = databaseConnection.getConnectionInfo();
+      const cacheStats = queryService.getCacheStats();
       
-      const lowerQuestion = question.toLowerCase();
-      
-      
-      // Ensure database is connected (optimized)
-      if (!database.pool) {
-        console.log('🔄 Connecting to database...');
-        await database.connect(false); // Don't re-initialize schema
-      }
-      
-      // Enhanced pattern matching with priority order
-      const queryPatterns = [
-        {
-          name: 'tournament_queries',
-          patterns: [/won|winner|champion|title|tournament|competition|grand slam|wimbledon|us open|french open|australian open|roland garros/i],
-          handler: () => this.handleTournamentQueries(lowerQuestion)
+      return {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        database: {
+          connected: dbInfo.isConnected,
+          isDocker: dbInfo.isDocker,
+          reconnectAttempts: dbInfo.reconnectAttempts
         },
-        {
-          name: 'head_to_head_queries',
-          patterns: [/head\s+to\s+head|h2h|vs|against|versus/i],
-          handler: () => this.handleHeadToHeadQueries(lowerQuestion)
+        cache: cacheStats,
+        handler: 'enhanced',
+        version: '2.0.0'
+      };
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        timestamp: new Date().toISOString(),
+        error: error.message,
+        handler: 'enhanced',
+        version: '2.0.0'
+      };
+    }
+  }
+
+  // Database connection status
+  async getDatabaseStatus() {
+    try {
+      const dbInfo = databaseConnection.getConnectionInfo();
+      const poolStats = await databaseConnection.getPoolStats();
+      
+      return {
+        ...dbInfo,
+        poolStats,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      return {
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  // Clear all caches
+  async clearCaches() {
+    try {
+      queryService.clearCache();
+      console.log('✅ All caches cleared');
+      return {
+        success: true,
+        message: 'All caches cleared successfully',
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('❌ Error clearing caches:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  // Get system statistics
+  async getSystemStats() {
+    try {
+      const dbInfo = databaseConnection.getConnectionInfo();
+      const poolStats = await databaseConnection.getPoolStats();
+      const cacheStats = queryService.getCacheStats();
+      
+      return {
+        database: {
+          ...dbInfo,
+          poolStats
         },
-        {
-          name: 'match_history_queries',
-          patterns: [/matches|results|recent.*matches|match.*history/i],
-          handler: () => this.handleMatchHistoryQueries(lowerQuestion)
+        cache: cacheStats,
+        system: {
+          uptime: process.uptime(),
+          memory: process.memoryUsage(),
+          nodeVersion: process.version,
+          platform: process.platform
         },
-        {
-          name: 'player_queries',
-          patterns: [/rank.*of|what.*rank|ranking.*of|who.*rank/i],
-          handler: () => this.handlePlayerQueries(lowerQuestion)
-        },
-        {
-          name: 'ranking_queries',
-          patterns: [/ranking|rank|number\s*\d+|top\s*\d+|#\d+/i],
-          handler: () => this.handleRankingQueries(lowerQuestion)
-        },
-        {
-          name: 'venue_queries',
-          patterns: [/venue|stadium|court|location|where/i],
-          handler: () => this.handleVenueQueries(lowerQuestion)
-        },
-        {
-          name: 'live_queries',
-          patterns: [/live|current|ongoing|happening|now|today/i],
-          handler: () => this.handleLiveQueries(lowerQuestion)
-        },
-        {
-          name: 'country_queries',
-          patterns: [/from|country|nationality|spanish|italian|serbian|american/i],
-          handler: () => this.handleCountryQueries(lowerQuestion)
-        },
-        {
-          name: 'general_queries',
-          patterns: [/.*/], // Catch-all pattern
-          handler: () => this.handleGeneralQueries(lowerQuestion)
-        }
-      ];
-      
-      // Try each pattern in order
-      for (const pattern of queryPatterns) {
-        console.log(`🔍 Testing pattern: ${pattern.name} against: "${question}"`);
-        const matched = pattern.patterns.some(p => {
-          const testResult = p.test(question);
-          console.log(`  Pattern ${p} matches: ${testResult}`);
-          return testResult;
-        });
-        
-        if (matched) {
-          console.log(`🎯 Matched pattern: ${pattern.name}`);
-          const result = await pattern.handler();
-          
-          // For tournament queries, don't fall back to general queries if no data found
-          if (pattern.name === 'tournament_queries') {
-            return result; // Return empty array for proper "no data" handling
-          }
-          
-          if (result && result.length > 0) {
-            return result;
-          }
-        }
-      }
-      
-      // If no patterns matched or returned data, return empty
-      return [];
-      
+        timestamp: new Date().toISOString()
+      };
     } catch (error) {
-      console.error('❌ Enhanced fallback query failed:', error.message);
-      return [];
+      return {
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
     }
   }
 
-  /**
-   * Handle ranking-related queries with enhanced logic
-   */
-  async handleRankingQueries(lowerQuestion) {
+  // Generate unique query ID
+  generateQueryId() {
+    return `query_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // Graceful shutdown
+  async shutdown() {
     try {
-      const sportsradar = new SportsradarAPI();
-      
-      // Extract ranking numbers from question
-      const rankingNumbers = lowerQuestion.match(/\b(\d+)\b/g) || [];
-      const isTopQuery = /top\s*(\d+)/i.test(lowerQuestion);
-      const isNumberOne = /number\s*one|#1|rank\s*1/i.test(lowerQuestion);
-      const isWTA = lowerQuestion.includes('wta') || lowerQuestion.includes('women');
-      
-      // Try to get live rankings from Sportsradar first
-      if (sportsradar.isConfigured()) {
-        try {
-          let rankings = [];
-          
-          if (isWTA) {
-            console.log('🎾 Fetching WTA rankings from Sportsradar...');
-            rankings = await sportsradar.getWTARankings();
-          } else {
-            console.log('🎾 Fetching ATP rankings from Sportsradar...');
-            rankings = await sportsradar.getATPRankings();
-          }
-          
-          if (rankings && rankings.length > 0) {
-            let filteredRankings = rankings;
-            
-            if (isTopQuery) {
-              const topNumber = lowerQuestion.match(/top\s*(\d+)/i)?.[1] || 10;
-              filteredRankings = rankings.slice(0, parseInt(topNumber));
-            } else if (isNumberOne) {
-              filteredRankings = rankings.slice(0, 1);
-            } else if (rankingNumbers.length > 0) {
-              const targetRankings = rankingNumbers.map(num => parseInt(num)).sort((a, b) => a - b);
-              filteredRankings = rankings.filter(ranking => targetRankings.includes(ranking.ranking));
-            } else {
-              filteredRankings = rankings.slice(0, 10);
-            }
-            
-            return filteredRankings.map(ranking => ({
-              name: ranking.player_name,
-              ranking: ranking.ranking,
-              points: ranking.points,
-              country: ranking.country,
-              tour: ranking.tour,
-              ranking_date: ranking.ranking_date
-            }));
-          }
-        } catch (error) {
-          console.error('Sportsradar API error:', error.message);
-          // Fall back to database query
-        }
-      }
-      
-      // Fallback to database query if Sportsradar is not available
-      console.log('📊 Using database fallback for rankings...');
-      
-      if (isTopQuery) {
-        const topNumber = lowerQuestion.match(/top\s*(\d+)/i)?.[1] || 10;
-        const isWTA = lowerQuestion.includes('wta') || lowerQuestion.includes('women');
-        
-        if (isWTA) {
-          // For WTA, use recent tournament performance as a proxy for rankings
-          // Focus on 2023-2024 data for more current rankings
-          const result = await database.query(`
-            SELECT winner as name, COUNT(*) as recent_wins,
-                   MAX(year) as latest_year,
-                   ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC, MAX(year) DESC) as ranking
-            FROM tennis_matches_simple
-            WHERE winner IS NOT NULL 
-            AND year >= 2023
-            AND (tourney_name ILIKE '%wta%' OR tourney_name ILIKE '%women%' OR tourney_name ILIKE '%ladies%'
-                 OR winner ILIKE '%swiatek%' OR winner ILIKE '%sabalenka%' OR winner ILIKE '%rybakina%'
-                 OR winner ILIKE '%pegula%' OR winner ILIKE '%garcia%' OR winner ILIKE '%kostyuk%'
-                 OR winner ILIKE '%azarenka%' OR winner ILIKE '%halep%' OR winner ILIKE '%kerber%'
-                 OR winner ILIKE '%serena%' OR winner ILIKE '%venus%' OR winner ILIKE '%sharapova%')
-            GROUP BY winner
-            ORDER BY recent_wins DESC, latest_year DESC
-            LIMIT ${parseInt(topNumber)}
-          `);
-          return result.rows;
-        } else {
-          // For ATP or general rankings, use recent performance
-          const result = await database.query(`
-            SELECT winner as name, COUNT(*) as recent_wins,
-                   MAX(year) as latest_year
-            FROM tennis_matches_simple
-            WHERE winner IS NOT NULL 
-            AND year >= 2020
-            AND (tourney_name NOT ILIKE '%wta%' AND tourney_name NOT ILIKE '%women%' AND tourney_name NOT ILIKE '%ladies%'
-                 OR tourney_name ILIKE '%atp%' OR tourney_name ILIKE '%men%')
-            GROUP BY winner
-            ORDER BY recent_wins DESC, latest_year DESC
-            LIMIT ${parseInt(topNumber)}
-          `);
-          return result.rows;
-        }
-      }
-      
-      // Default fallback
-      return [];
-      
+      console.log('🔄 Shutting down Tennis Query Handler...');
+      await databaseConnection.close();
+      this.isInitialized = false;
+      console.log('✅ Tennis Query Handler shutdown complete');
     } catch (error) {
-      console.error('Ranking query error:', error.message);
-      return [];
+      console.error('❌ Error during shutdown:', error.message);
     }
-  }
-
-  /**
-   * Handle player-specific queries with enhanced data
-   */
-  async handlePlayerQueries(lowerQuestion) {
-    try {
-      // Extract player name from question dynamically
-      // Look for patterns like "rank of [player]", "what is the rank of [player]", etc.
-      const rankPatterns = [
-        /rank\s+of\s+([a-z\s]+)/i,
-        /what\s+is\s+the\s+rank\s+of\s+([a-z\s]+)/i,
-        /ranking\s+of\s+([a-z\s]+)/i,
-        /who\s+is\s+([a-z\s]+)/i
-      ];
-      
-      let playerName = '';
-      for (const pattern of rankPatterns) {
-        const match = lowerQuestion.match(pattern);
-        if (match && match[1]) {
-          playerName = match[1].trim();
-          break;
-        }
-      }
-      
-      // If no pattern matched, try to extract from common player names
-      if (!playerName) {
-        const playerNames = ['jannik', 'sinner', 'alcaraz', 'carlos', 'djokovic', 'novak', 'nadal', 'federer', 'murray', 'arthur', 'fils'];
-        const matchedPlayer = playerNames.find(name => lowerQuestion.includes(name));
-        if (matchedPlayer) {
-          playerName = matchedPlayer;
-        }
-      }
-      
-      if (playerName) {
-        // Create search patterns for the player name
-        // Try multiple formats: "First Last", "Last, First", and just the last name
-        const nameParts = playerName.trim().split(' ');
-        const firstName = nameParts[0];
-        const lastName = nameParts[nameParts.length - 1];
-        
-        const searchPatterns = [
-          `%${playerName}%`,  // "Daniil Medvedev"
-          `%${nameParts.reverse().join(', ')}%`,  // "Medvedev, Daniil"
-          `%${lastName}%`,  // Just "Medvedev"
-          `%${firstName}%`   // Just "Daniil"
-        ];
-        
-        // Try each pattern until we find a match
-        for (const searchPattern of searchPatterns) {
-          const result = await database.query(`
-            SELECT p.name, p.country, p.country_code, p.current_ranking, p.tour, p.birth_date, 
-                   p.height, p.weight, p.playing_hand, p.handedness, p.turned_pro, p.pro_year, 
-                   p.career_prize_money, p.highest_singles_ranking, p.highest_singles_ranking_date, 
-                   p.gender, p.abbreviation, p.nationality,
-                   r.ranking, r.points, TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date
-            FROM players p
-            LEFT JOIN rankings r ON p.id = r.player_id 
-              AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings)
-            WHERE p.name ILIKE $1
-            AND p.tour = 'ATP'
-            ORDER BY p.current_ranking ASC
-            LIMIT 1
-          `, [searchPattern]);
-          
-          if (result.rows.length > 0) {
-            // If we found a player but no ranking data, try to find ranking data for any player with similar name
-            if (!result.rows[0].ranking) {
-              const rankingResult = await database.query(`
-                SELECT p.name, p.country, p.country_code, p.current_ranking, p.tour, p.birth_date, 
-                       p.height, p.weight, p.playing_hand, p.handedness, p.turned_pro, p.pro_year, 
-                       p.career_prize_money, p.highest_singles_ranking, p.highest_singles_ranking_date, 
-                       p.gender, p.abbreviation, p.nationality,
-                       r.ranking, r.points, TO_CHAR(r.ranking_date, 'YYYY-MM-DD') as ranking_date
-                FROM players p
-                JOIN rankings r ON p.id = r.player_id 
-                  AND r.ranking_date = (SELECT MAX(ranking_date) FROM rankings)
-                WHERE p.name ILIKE $1
-                AND p.tour = 'ATP'
-                ORDER BY r.ranking ASC
-                LIMIT 1
-              `, [searchPattern]);
-              
-              if (rankingResult.rows.length > 0) {
-                return rankingResult.rows;
-              }
-            }
-            return result.rows;
-          }
-        }
-      }
-      
-      return [];
-    } catch (error) {
-      console.error('Player query error:', error.message);
-      return [];
-    }
-  }
-
-  /**
-   * Handle tournament and competition queries
-   */
-  async handleTournamentQueries(lowerQuestion) {
-    try {
-      console.log('🎾 Handling tournament query:', lowerQuestion);
-      
-      // Check if asking about specific tournament winners
-      if (lowerQuestion.includes('won') || lowerQuestion.includes('winner') || 
-          lowerQuestion.includes('champion') || lowerQuestion.includes('title')) {
-        
-        // Extract tournament name and year
-        let tournamentName = '';
-        let year = '';
-        
-        // Enhanced tournament name detection
-        if (lowerQuestion.includes('us open')) {
-          tournamentName = 'US Open';
-        } else if (lowerQuestion.includes('wimbledon')) {
-          tournamentName = 'Wimbledon';
-        } else if (lowerQuestion.includes('french open') || lowerQuestion.includes('roland garros')) {
-          tournamentName = 'French Open';
-        } else if (lowerQuestion.includes('australian open')) {
-          tournamentName = 'Australian Open';
-        } else if (lowerQuestion.includes('grand slam')) {
-          // For grand slam queries, we'll need to check all four majors
-          tournamentName = 'Grand Slam';
-        }
-        
-        // Extract year with better pattern matching
-        const yearMatch = lowerQuestion.match(/\b(19|20)\d{2}\b/);
-        if (yearMatch) {
-          year = yearMatch[0];
-        }
-        
-        console.log('🎾 Extracted tournament:', tournamentName, 'year:', year);
-        
-        if (tournamentName) {
-          let query = '';
-          let params = [];
-          
-          if (tournamentName === 'Grand Slam') {
-            // Query all grand slams
-            query = `
-              SELECT winner, loser, tourney_name, year, round, set1, set2, set3, set4, set5
-              FROM tennis_matches_simple 
-              WHERE tourney_name IN ('US Open', 'Wimbledon', 'French Open', 'Australian Open')
-              AND round = 'F'
-            `;
-            params = [];
-            
-            if (year) {
-              query += ' AND year = $1';
-              params.push(year);
-            }
-            
-            query += ' ORDER BY year DESC LIMIT 10';
-          } else {
-            // Query specific tournament
-            query = `
-              SELECT winner, loser, tourney_name, year, round, set1, set2, set3, set4, set5
-              FROM tennis_matches_simple 
-              WHERE tourney_name ILIKE $1
-              AND round = 'F'
-            `;
-            params = [`%${tournamentName}%`];
-            
-            if (year) {
-              query += ' AND year = $2';
-              params.push(year);
-            }
-            
-            query += ' ORDER BY year DESC LIMIT 5';
-          }
-          
-          console.log('🎾 Executing query:', query, 'with params:', params);
-          const result = await database.query(query, params);
-          console.log('🎾 Query result:', result.rows.length, 'rows');
-          
-          if (result.rows.length > 0) {
-            return result.rows;
-          }
-        }
-      }
-      
-      // Check for tournament information queries
-      if (lowerQuestion.includes('tournament') || lowerQuestion.includes('competition')) {
-        const result = await database.query(`
-          SELECT DISTINCT tourney_name, year, surface, draw_size
-          FROM tennis_matches_simple 
-          WHERE tourney_name IS NOT NULL
-          ORDER BY year DESC, tourney_name
-          LIMIT 20
-        `);
-        return result.rows;
-      }
-      
-      // If no specific winner data found, return empty
-      return [];
-    } catch (error) {
-      console.error('❌ Tournament query error:', error.message);
-      return [];
-    }
-  }
-
-  /**
-   * Handle venue and location queries
-   */
-  async handleVenueQueries(lowerQuestion) {
-    try {
-      const result = await database.query(`
-        SELECT name, city_name, country_name, country_code, capacity, timezone
-        FROM venues
-        ORDER BY name
-        LIMIT 10
-      `);
-      return result.rows;
-    } catch (error) {
-      console.error('Venue query error:', error.message);
-      return [];
-    }
-  }
-
-  /**
-   * Handle live and current event queries
-   */
-  async handleLiveQueries(lowerQuestion) {
-    try {
-      const result = await database.query(`
-        SELECT se.id, se.start_time, ses.status, ses.match_status, ses.home_score, ses.away_score
-        FROM sport_events se
-        LEFT JOIN sport_event_status ses ON se.id = ses.sport_event_id
-        WHERE se.start_time >= CURRENT_DATE - INTERVAL '1 day'
-        AND se.start_time <= CURRENT_DATE + INTERVAL '7 days'
-        ORDER BY se.start_time
-        LIMIT 10
-      `);
-      return result.rows;
-    } catch (error) {
-      console.error('Live query error:', error.message);
-      return [];
-    }
-  }
-
-  /**
-   * Handle country and nationality queries
-   */
-  async handleCountryQueries(lowerQuestion) {
-    try {
-      const result = await database.query(`
-        SELECT name, country, country_code, current_ranking, tour
-        FROM players 
-        WHERE current_ranking > 0 
-        ORDER BY current_ranking 
-        LIMIT 20
-      `);
-      return result.rows;
-    } catch (error) {
-      console.error('Country query error:', error.message);
-      return [];
-    }
-  }
-
-  /**
-   * Handle head-to-head and match history queries
-   */
-  async handleHeadToHeadQueries(lowerQuestion) {
-    try {
-      console.log('🎾 Handling head-to-head query:', lowerQuestion);
-      
-      // Extract player names from various patterns
-      let player1 = '';
-      let player2 = '';
-      
-      // Pattern: "player1 vs player2", "player1 against player2", "player1 v player2"
-      const vsPattern = /([a-z\s]+)\s+(?:vs|against|v)\s+([a-z\s]+)/i;
-      const vsMatch = lowerQuestion.match(vsPattern);
-      if (vsMatch) {
-        player1 = vsMatch[1].trim();
-        player2 = vsMatch[2].trim();
-      }
-      
-      // Pattern: "head to head between player1 and player2"
-      const h2hPattern = /head\s+to\s+head\s+(?:between\s+)?([a-z\s]+)\s+and\s+([a-z\s]+)/i;
-      const h2hMatch = lowerQuestion.match(h2hPattern);
-      if (h2hMatch) {
-        player1 = h2hMatch[1].trim();
-        player2 = h2hMatch[2].trim();
-      }
-      
-      if (player1 && player2) {
-        console.log('🎾 Found players:', player1, 'vs', player2);
-        
-        // Query head-to-head matches
-        const result = await database.query(`
-          SELECT 
-            winner, loser, tourney_name, year, round, surface, set1, set2, set3, set4, set5
-          FROM tennis_matches_simple
-          WHERE (
-            (winner ILIKE $1 AND loser ILIKE $2) OR 
-            (winner ILIKE $2 AND loser ILIKE $1)
-          )
-          ORDER BY year DESC, tourney_name
-          LIMIT 10
-        `, [`%${player1}%`, `%${player2}%`]);
-        
-        if (result.rows.length > 0) {
-          return result.rows;
-        }
-      }
-      
-      return [];
-    } catch (error) {
-      console.error('❌ Head-to-head query error:', error.message);
-      return [];
-    }
-  }
-
-  /**
-   * Handle match history queries for specific players
-   */
-  async handleMatchHistoryQueries(lowerQuestion) {
-    try {
-      console.log('🎾 Handling match history query:', lowerQuestion);
-      
-      // Extract player name from various patterns
-      let playerName = '';
-      
-      // Pattern: "matches of player", "player matches", "player results"
-      const matchPatterns = [
-        /matches\s+of\s+([a-z\s]+)/i,
-        /([a-z\s]+)\s+matches/i,
-        /([a-z\s]+)\s+results/i,
-        /recent\s+matches\s+of\s+([a-z\s]+)/i,
-        /([a-z\s]+)\s+recent\s+matches/i
-      ];
-      
-      for (const pattern of matchPatterns) {
-        const match = lowerQuestion.match(pattern);
-        if (match && match[1]) {
-          playerName = match[1].trim();
-          break;
-        }
-      }
-      
-      if (playerName) {
-        console.log('🎾 Found player:', playerName);
-        
-        // Query recent matches for the player
-        const result = await database.query(`
-          SELECT 
-            winner, loser, tourney_name, year, round, surface, set1, set2, set3, set4, set5
-          FROM tennis_matches_simple
-          WHERE (winner ILIKE $1 OR loser ILIKE $1)
-          ORDER BY year DESC, tourney_name
-          LIMIT 10
-        `, [`%${playerName}%`]);
-        
-        if (result.rows.length > 0) {
-          return result.rows;
-        }
-      }
-      
-      return [];
-    } catch (error) {
-      console.error('❌ Match history query error:', error.message);
-      return [];
-    }
-  }
-
-  /**
-   * Handle general queries as fallback
-   */
-  async handleGeneralQueries(lowerQuestion) {
-    try {
-      // Handle "how many matches" queries
-      if (lowerQuestion.includes('how many') && lowerQuestion.includes('match')) {
-        const result = await database.query(`
-          SELECT COUNT(*) as count
-          FROM tennis_matches_simple
-        `);
-        return result.rows;
-      }
-      
-      // Handle "show me recent matches" queries
-      if (lowerQuestion.includes('recent') || lowerQuestion.includes('latest') || lowerQuestion.includes('show me')) {
-        const result = await database.query(`
-          SELECT tourney_name, year, winner, loser, round, surface
-          FROM tennis_matches_simple
-          WHERE year >= 2020
-          ORDER BY year DESC, tourney_name
-          LIMIT 10
-        `);
-        return result.rows;
-      }
-      
-      // Handle "top players" queries
-      if (lowerQuestion.includes('top') || lowerQuestion.includes('best') || lowerQuestion.includes('most wins')) {
-        // Check if it's asking for WTA specifically
-        if (lowerQuestion.includes('wta') || lowerQuestion.includes('women')) {
-          const result = await database.query(`
-            SELECT winner as name, COUNT(*) as wins
-            FROM tennis_matches_simple
-            WHERE winner IS NOT NULL 
-            AND (tourney_name ILIKE '%wta%' OR tourney_name ILIKE '%women%' OR tourney_name ILIKE '%ladies%')
-            GROUP BY winner
-            ORDER BY wins DESC
-            LIMIT 10
-          `);
-          return result.rows;
-        }
-        
-        // Check if it's asking for ATP specifically
-        if (lowerQuestion.includes('atp') || lowerQuestion.includes('men')) {
-          const result = await database.query(`
-            SELECT winner as name, COUNT(*) as wins
-            FROM tennis_matches_simple
-            WHERE winner IS NOT NULL 
-            AND (tourney_name ILIKE '%atp%' OR tourney_name ILIKE '%men%' OR tourney_name NOT ILIKE '%wta%' AND tourney_name NOT ILIKE '%women%' AND tourney_name NOT ILIKE '%ladies%')
-            GROUP BY winner
-            ORDER BY wins DESC
-            LIMIT 10
-          `);
-          return result.rows;
-        }
-        
-        // Default: return all players
-        const result = await database.query(`
-          SELECT winner as name, COUNT(*) as wins
-          FROM tennis_matches_simple
-          WHERE winner IS NOT NULL
-          GROUP BY winner
-          ORDER BY wins DESC
-          LIMIT 10
-        `);
-        return result.rows;
-      }
-      
-      // Default: return some recent matches
-      const result = await database.query(`
-        SELECT tourney_name, year, winner, loser, round
-        FROM tennis_matches_simple
-        WHERE year >= 2020
-        ORDER BY year DESC
-        LIMIT 5
-      `);
-      return result.rows;
-    } catch (error) {
-      console.error('General query error:', error.message);
-      return [];
-    }
-  }
-
-  /**
-   * Legacy method for backward compatibility
-   */
-  async queryDatabaseDirectlyLegacy(question) {
-    try {
-      // Ensure database is connected (optimized)
-      if (!database.pool) {
-        console.log('🔄 Connecting to database...');
-        await database.connect(false); // Don't re-initialize schema
-      }
-      
-      const lowerQuestion = question.toLowerCase();
-      
-      // Check for tournament questions first
-      if (lowerQuestion.includes('won') || lowerQuestion.includes('winner') || 
-          lowerQuestion.includes('us open') || lowerQuestion.includes('wimbledon') || 
-          lowerQuestion.includes('french open') || lowerQuestion.includes('australian open') ||
-          lowerQuestion.includes('grand slam') || lowerQuestion.includes('tournament')) {
-        // Return empty for tournament questions - we don't have tournament results
-        return [];
-      }
-      
-      // Check for specific player queries with enhanced data
-      if (lowerQuestion.includes('jannik') || lowerQuestion.includes('sinner')) {
-        const result = await database.query(`
-          SELECT name, country, country_code, current_ranking, tour, birth_date, height, weight, 
-                 playing_hand, handedness, turned_pro, pro_year, career_prize_money,
-                 highest_singles_ranking, highest_singles_ranking_date, gender, abbreviation, nationality
-          FROM players 
-          WHERE name ILIKE '%sinner%' OR name ILIKE '%jannik%'
-          AND tour = 'ATP'
-          ORDER BY current_ranking ASC
-          LIMIT 1
-        `);
-        return result.rows;
-      }
-      
-      if (lowerQuestion.includes('alcaraz') || lowerQuestion.includes('carlos')) {
-        const result = await database.query(`
-          SELECT name, country, current_ranking, tour, birth_date, height, weight, playing_hand, turned_pro, career_prize_money
-          FROM players 
-          WHERE name ILIKE '%alcaraz%' OR name ILIKE '%carlos%'
-          AND tour = 'ATP'
-          ORDER BY current_ranking ASC
-          LIMIT 1
-        `);
-        return result.rows;
-      }
-      
-      if (lowerQuestion.includes('djokovic') || lowerQuestion.includes('novak')) {
-        const result = await database.query(`
-          SELECT name, country, current_ranking, tour, birth_date, height, weight, playing_hand, turned_pro, career_prize_money
-          FROM players 
-          WHERE name ILIKE '%djokovic%' OR name ILIKE '%novak%'
-          AND tour = 'ATP'
-          ORDER BY current_ranking ASC
-          LIMIT 1
-        `);
-        return result.rows;
-      }
-      
-      // Simple pattern matching for common queries
-      if (lowerQuestion.includes('ranking') || lowerQuestion.includes('rank')) {
-        const result = await database.query(`
-          SELECT name, country, current_ranking, tour 
-          FROM players 
-          WHERE current_ranking > 0 
-          ORDER BY current_ranking 
-          LIMIT 10
-        `);
-        return result.rows;
-      }
-      
-      // Enhanced queries for new XSD data structures
-      
-      // Competition/Tournament info queries
-      if (lowerQuestion.includes('competition') || lowerQuestion.includes('tournament')) {
-        const result = await database.query(`
-          SELECT c.name, c.type, c.level, c.gender, ci.surface, ci.prize_money, ci.number_of_competitors
-          FROM competitions c
-          LEFT JOIN competition_info ci ON c.id = ci.competition_id
-          ORDER BY c.name
-          LIMIT 10
-        `);
-        return result.rows;
-      }
-      
-      // Season data queries
-      if (lowerQuestion.includes('season') || lowerQuestion.includes('year')) {
-        const result = await database.query(`
-          SELECT s.name, s.year, s.start_date, s.end_date, c.name as competition_name
-          FROM seasons s
-          JOIN competitions c ON s.competition_id = c.id
-          ORDER BY s.year DESC, s.start_date DESC
-          LIMIT 10
-        `);
-        return result.rows;
-      }
-      
-      // Venue queries
-      if (lowerQuestion.includes('venue') || lowerQuestion.includes('stadium') || lowerQuestion.includes('court')) {
-        const result = await database.query(`
-          SELECT name, city_name, country_name, country_code, capacity, timezone
-          FROM venues
-          ORDER BY name
-          LIMIT 10
-        `);
-        return result.rows;
-      }
-      
-      // Race rankings queries
-      if (lowerQuestion.includes('race') || lowerQuestion.includes('year to date') || lowerQuestion.includes('ytd')) {
-        const result = await database.query(`
-          SELECT p.name, rr.ranking, rr.points, rr.year, rr.week
-          FROM race_rankings rr
-          JOIN players p ON rr.player_id = p.id
-          WHERE rr.year = EXTRACT(YEAR FROM CURRENT_DATE)
-          ORDER BY rr.ranking
-          LIMIT 10
-        `);
-        return result.rows;
-      }
-      
-      // Double rankings queries
-      if (lowerQuestion.includes('doubles') || lowerQuestion.includes('double')) {
-        const result = await database.query(`
-          SELECT p1.name as player1, p2.name as player2, dr.ranking, dr.points, dr.year
-          FROM double_rankings dr
-          JOIN players p1 ON dr.player1_id = p1.id
-          JOIN players p2 ON dr.player2_id = p2.id
-          WHERE dr.year = EXTRACT(YEAR FROM CURRENT_DATE)
-          ORDER BY dr.ranking
-          LIMIT 10
-        `);
-        return result.rows;
-      }
-      
-      // Sport events queries
-      if (lowerQuestion.includes('live') || lowerQuestion.includes('current') || lowerQuestion.includes('ongoing')) {
-        const result = await database.query(`
-          SELECT se.id, se.start_time, ses.status, ses.match_status, ses.home_score, ses.away_score
-          FROM sport_events se
-          LEFT JOIN sport_event_status ses ON se.id = ses.sport_event_id
-          WHERE se.start_time >= CURRENT_DATE - INTERVAL '1 day'
-          AND se.start_time <= CURRENT_DATE + INTERVAL '7 days'
-          ORDER BY se.start_time
-          LIMIT 10
-        `);
-        return result.rows;
-      }
-      
-      // Country-based queries
-      if (lowerQuestion.includes('from') || lowerQuestion.includes('country')) {
-        const countryMatch = lowerQuestion.match(/(?:from|in|country)\s+([a-z]+)/i);
-        if (countryMatch) {
-          const country = countryMatch[1].toUpperCase();
-          const result = await database.query(`
-            SELECT name, country, country_code, current_ranking, tour, nationality
-            FROM players 
-            WHERE (country = $1 OR country_code = $1) AND current_ranking > 0
-            ORDER BY current_ranking 
-            LIMIT 10
-          `, [country]);
-          return result.rows;
-        }
-      }
-      
-      // Age-based queries
-      if (lowerQuestion.includes('youngest') || lowerQuestion.includes('oldest')) {
-        const order = lowerQuestion.includes('youngest') ? 'DESC' : 'ASC';
-        const result = await database.query(`
-          SELECT name, country, current_ranking, birth_date, tour
-          FROM players 
-          WHERE birth_date IS NOT NULL AND current_ranking > 0
-          ORDER BY birth_date ${order}
-          LIMIT 5
-        `);
-        return result.rows;
-      }
-      
-      // Prize money queries
-      if (lowerQuestion.includes('prize') || lowerQuestion.includes('money') || lowerQuestion.includes('earnings')) {
-        const result = await database.query(`
-          SELECT name, country, current_ranking, career_prize_money, tour
-          FROM players 
-          WHERE career_prize_money > 0
-          ORDER BY career_prize_money DESC
-          LIMIT 10
-        `);
-        return result.rows;
-      }
-      
-      if (lowerQuestion.includes('most') || lowerQuestion.includes('highest') || lowerQuestion.includes('best')) {
-        if (lowerQuestion.includes('ace') || lowerQuestion.includes('aces')) {
-          const result = await database.query(`
-            SELECT p.name, p.country, SUM(ms.aces) as total_aces
-            FROM players p
-            JOIN match_stats ms ON p.id = ms.player_id
-            GROUP BY p.id, p.name, p.country
-            ORDER BY total_aces DESC
-            LIMIT 5
-          `);
-          return result.rows;
-        }
-        
-        if (lowerQuestion.includes('prize') || lowerQuestion.includes('money')) {
-          const result = await database.query(`
-            SELECT name, country, career_prize_money
-            FROM players
-            WHERE career_prize_money > 0
-            ORDER BY career_prize_money DESC
-            LIMIT 5
-          `);
-          return result.rows;
-        }
-      }
-      
-      // Default: return top ranked players
-      const result = await database.query(`
-        SELECT name, country, current_ranking, tour
-        FROM players
-        WHERE current_ranking > 0
-        ORDER BY current_ranking
-        LIMIT 5
-      `);
-      return result.rows;
-      
-    } catch (error) {
-      console.error('Direct database query failed:', error.message);
-      return [];
-    }
-  }
-
-  /**
-   * Generate simple answer without AI
-   */
-  async generateSimpleAnswer(question, data) {
-    if (!data || data.length === 0) {
-      const lowerQuestion = question.toLowerCase();
-      
-      // Handle tournament questions specifically
-      if (lowerQuestion.includes('won') || lowerQuestion.includes('winner') || 
-          lowerQuestion.includes('us open') || lowerQuestion.includes('wimbledon') || 
-          lowerQuestion.includes('french open') || lowerQuestion.includes('australian open') ||
-          lowerQuestion.includes('grand slam') || lowerQuestion.includes('tournament') ||
-          lowerQuestion.includes('roland garros')) {
-        
-        // Try to query historical matches
-        try {
-          const historicalResult = await queryHistoricalMatches(question);
-          if (historicalResult) {
-            return historicalResult;
-          }
-        } catch (error) {
-          console.log('⚠️  Historical query failed:', error.message);
-        }
-        
-        // Temporary hardcoded answers for common queries while database connection is being fixed
-        if (lowerQuestion.includes('us open') && lowerQuestion.includes('2024')) {
-          return "Coco Gauff won the US Open 2024 women's final, defeating Aryna Sabalenka 2-6, 6-3, 6-2. Jannik Sinner won the US Open 2024 men's final, defeating Daniil Medvedev 6-3, 6-3, 6-4.";
-        }
-        
-        return "I don't have access to tournament results or match outcomes in the current data. I can only provide current player rankings and basic player information.";
-      }
-      
-      return "I don't have enough data to answer that question right now.";
-    }
-
-    const lowerQuestion = question.toLowerCase();
-    const player = data[0];
-    
-    // Handle tournament data specifically
-    if (player.tourney_name || player.tournament || player.result) {
-      if (player.result) {
-        return player.result;
-      }
-      if (player.winner && player.tourney_name) {
-        const score = [player.set1, player.set2, player.set3, player.set4, player.set5]
-          .filter(set => set && set !== '')
-          .join(' ');
-        
-        let result = `${player.winner} won the ${player.tourney_name} ${player.year || ''}`.trim();
-        if (player.loser) {
-          result += `, defeating ${player.loser}`;
-        }
-        if (score) {
-          result += ` ${score}`;
-        }
-        return result;
-      }
-    }
-    
-    // Handle head-to-head data
-    if (lowerQuestion.includes('vs') || lowerQuestion.includes('against') || lowerQuestion.includes('head to head')) {
-      if (data.length > 1) {
-        const player1Wins = data.filter(match => match.winner === data[0].winner).length;
-        const player2Wins = data.filter(match => match.winner === data[0].loser).length;
-        const totalMatches = data.length;
-        
-        return `Head-to-head record: ${data[0].winner} leads ${player1Wins}-${player2Wins} (${totalMatches} total matches). Recent matches: ${data.slice(0, 3).map(m => `${m.winner} def. ${m.loser} ${m.year}`).join(', ')}.`;
-      }
-    }
-    
-    // Handle match history data
-    if (lowerQuestion.includes('matches') || lowerQuestion.includes('results')) {
-      if (data.length > 0) {
-        const player = data[0].winner || data[0].loser;
-        const wins = data.filter(match => match.winner === player).length;
-        const losses = data.filter(match => match.loser === player).length;
-        
-        return `Recent matches for ${player}: ${wins} wins, ${losses} losses. Latest: ${data.slice(0, 3).map(m => `${m.winner} def. ${m.loser} at ${m.tourney_name} ${m.year}`).join(', ')}.`;
-      }
-    }
-    
-    // Handle specific player queries
-    if (lowerQuestion.includes('jannik') || lowerQuestion.includes('sinner')) {
-      return `Jannik Sinner is an Italian professional tennis player currently ranked #${player.current_ranking} in the ATP tour. He's from ${player.country} and has earned $${player.career_prize_money ? player.career_prize_money.toLocaleString() : 'N/A'} in career prize money. He turned professional in ${player.turned_pro || 'N/A'} and plays with his ${player.playing_hand || 'right'} hand.`;
-    }
-    
-    if (lowerQuestion.includes('alcaraz') || lowerQuestion.includes('carlos')) {
-      return `Carlos Alcaraz is a Spanish professional tennis player currently ranked #${player.current_ranking} in the ATP tour. He's from ${player.country} and has earned $${player.career_prize_money ? player.career_prize_money.toLocaleString() : 'N/A'} in career prize money. He turned professional in ${player.turned_pro || 'N/A'} and plays with his ${player.playing_hand || 'right'} hand.`;
-    }
-    
-    if (lowerQuestion.includes('djokovic') || lowerQuestion.includes('novak')) {
-      return `Novak Djokovic is a Serbian professional tennis player currently ranked #${player.current_ranking} in the ATP tour. He's from ${player.country} and has earned $${player.career_prize_money ? player.career_prize_money.toLocaleString() : 'N/A'} in career prize money. He turned professional in ${player.turned_pro || 'N/A'} and plays with his ${player.playing_hand || 'right'} hand.`;
-    }
-    
-    if (lowerQuestion.includes('ranking') || lowerQuestion.includes('rank')) {
-      // Check if asking about specific rank (like "who is rank 1")
-      if (lowerQuestion.includes('rank 1') || lowerQuestion.includes('number 1') || lowerQuestion.includes('#1')) {
-        return `${player.name} is ranked #${player.ranking || player.current_ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
-      }
-      // Check if asking about a specific player's rank
-      if (lowerQuestion.includes('what is the rank') || lowerQuestion.includes('rank of')) {
-        return `${player.name} is ranked #${player.ranking || player.current_ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
-      }
-      // General ranking response
-      return `${player.name} is ranked #${player.ranking || player.current_ranking} with ${player.points ? player.points.toLocaleString() : 'N/A'} points.`;
-    }
-    
-    if (lowerQuestion.includes('most') || lowerQuestion.includes('highest')) {
-      if (lowerQuestion.includes('ace')) {
-        return `${player.name} from ${player.country} has the most aces with ${player.total_aces} total aces.`;
-      }
-      
-      if (lowerQuestion.includes('prize') || lowerQuestion.includes('money')) {
-        return `${player.name} from ${player.country} has earned the most prize money with $${player.career_prize_money.toLocaleString()}.`;
-      }
-    }
-    
-    // Handle country-based queries
-    if (lowerQuestion.includes('from') || lowerQuestion.includes('country')) {
-      if (data.length > 1) {
-        const country = data[0].country;
-        const playerNames = data.slice(0, 3).map(p => p.name).join(', ');
-        return `Here are the top tennis players from ${country}: ${playerNames}. ${data[0].name} is currently ranked #${data[0].current_ranking}.`;
-      }
-    }
-    
-    // Handle age-based queries
-    if (lowerQuestion.includes('youngest') || lowerQuestion.includes('oldest')) {
-      const ageType = lowerQuestion.includes('youngest') ? 'youngest' : 'oldest';
-      const birthYear = new Date(player.birth_date).getFullYear();
-      const currentYear = new Date().getFullYear();
-      const age = currentYear - birthYear;
-      return `The ${ageType} player in the current rankings is ${player.name} from ${player.country}, who is ${age} years old and currently ranked #${player.current_ranking}.`;
-    }
-    
-    // Handle prize money queries
-    if (lowerQuestion.includes('prize') || lowerQuestion.includes('money') || lowerQuestion.includes('earnings')) {
-      if (data.length > 1) {
-        const topEarners = data.slice(0, 3).map(p => `${p.name} ($${p.career_prize_money ? p.career_prize_money.toLocaleString() : 'N/A'})`).join(', ');
-        return `The top earners in tennis are: ${topEarners}. ${player.name} has earned $${player.career_prize_money ? player.career_prize_money.toLocaleString() : 'N/A'} in career prize money.`;
-      }
-    }
-    
-    // Default response
-    return `Here's some tennis data: ${player.name} from ${player.country} is currently ranked #${player.current_ranking || 'N/A'} in the ${player.tour || 'ATP'} tour.`;
-  }
-
-  // Advanced query patterns from implementation plan
-  async getTournamentWinner(tournament, year) {
-    const query = `
-      SELECT tourney_name, year, winner, loser, set1, set2, set3, set4, set5
-      FROM tennis_matches_simple
-      WHERE tourney_name ILIKE $1 
-      AND year = $2 
-      AND round = 'F'
-      LIMIT 1
-    `;
-    return await database.query(query, [`%${tournament}%`, year]);
-  }
-
-  async getHeadToHead(player1, player2) {
-    const query = `
-      SELECT 
-        COUNT(CASE WHEN mr.winner_id = $1 THEN 1 END) as player1_wins,
-        COUNT(CASE WHEN mr.winner_id = $2 THEN 1 END) as player2_wins,
-        COUNT(*) as total_matches,
-        tm.tourney_name,
-        tm.year,
-        mr.set1, mr.set2, mr.set3, mr.set4, mr.set5
-      FROM tennis_matches tm
-      JOIN match_results mr ON tm.match_id = mr.match_id
-      WHERE (mr.winner_id = $1 AND mr.loser_id = $2) OR (mr.winner_id = $2 AND mr.loser_id = $1)
-      GROUP BY tm.tourney_name, tm.year, mr.set1, mr.set2, mr.set3, mr.set4, mr.set5
-      ORDER BY tm.year DESC
-    `;
-    return await database.query(query, [player1, player2]);
-  }
-
-  async getPlayerCareerStats(player) {
-    const query = `
-      SELECT 
-        COUNT(CASE WHEN mr.winner_id = $1 THEN 1 END) as wins,
-        COUNT(CASE WHEN mr.loser_id = $1 THEN 1 END) as losses,
-        AVG(tm.minutes) as avg_match_duration,
-        COUNT(DISTINCT tm.tourney_name) as tournaments_played,
-        COUNT(CASE WHEN tm.round = 'F' AND mr.winner_id = $1 THEN 1 END) as titles_won,
-        COUNT(CASE WHEN tm.round = 'F' AND mr.loser_id = $1 THEN 1 END) as finals_lost,
-        MIN(tm.year) as first_year,
-        MAX(tm.year) as last_year
-      FROM tennis_matches tm
-      JOIN match_results mr ON tm.match_id = mr.match_id
-      WHERE mr.winner_id = $1 OR mr.loser_id = $1
-    `;
-    return await database.query(query, [player]);
-  }
-
-  async getGrandSlamWinners() {
-    const query = `
-      SELECT 
-        tm.tourney_name,
-        tm.year,
-        mr.winner_id,
-        mr.set1, mr.set2, mr.set3, mr.set4, mr.set5
-      FROM tennis_matches tm
-      JOIN match_results mr ON tm.match_id = mr.match_id
-      WHERE tm.tourney_name IN ('Wimbledon', 'US Open', 'French Open', 'Australian Open')
-      AND tm.round = 'F'
-      ORDER BY tm.year DESC, tm.tourney_name
-      LIMIT 20
-    `;
-    return await database.query(query);
-  }
-
-  async getLongestMatches() {
-    const query = `
-      SELECT 
-        tm.tourney_name,
-        tm.year,
-        tm.minutes,
-        mr.winner_id,
-        mr.loser_id,
-        mr.set1, mr.set2, mr.set3, mr.set4, mr.set5
-      FROM tennis_matches tm
-      JOIN match_results mr ON tm.match_id = mr.match_id
-      WHERE tm.minutes IS NOT NULL
-      ORDER BY tm.minutes DESC
-      LIMIT 10
-    `;
-    return await database.query(query);
-  }
-
-  async getMostWinsInYear(year) {
-    const query = `
-      SELECT 
-        mr.winner_id,
-        COUNT(*) as wins,
-        tm.tourney_name,
-        tm.year
-      FROM tennis_matches tm
-      JOIN match_results mr ON tm.match_id = mr.match_id
-      WHERE tm.year = $1
-      GROUP BY mr.winner_id, tm.tourney_name, tm.year
-      ORDER BY wins DESC
-      LIMIT 10
-    `;
-    return await database.query(query, [year]);
-  }
-
-  async getTournamentWinnersByYearRange(tournament, startYear, endYear) {
-    const query = `
-      SELECT 
-        tm.tourney_name,
-        tm.year,
-        mr.winner_id,
-        mr.set1, mr.set2, mr.set3, mr.set4, mr.set5
-      FROM tennis_matches tm
-      JOIN match_results mr ON tm.match_id = mr.match_id
-      WHERE tm.tourney_name ILIKE $1 
-      AND tm.year BETWEEN $2 AND $3
-      AND tm.round = 'F'
-      ORDER BY tm.year DESC
-    `;
-    return await database.query(query, [tournament, startYear, endYear]);
-  }
-
-  // Smart query routing based on analysis
-  async analyzeQuery(question) {
-    const lowerQuestion = question.toLowerCase();
-    
-    return {
-      isHistorical: lowerQuestion.includes('history') || 
-                   lowerQuestion.includes('career') || 
-                   lowerQuestion.includes('won') ||
-                   lowerQuestion.includes('champion') ||
-                   lowerQuestion.includes('title'),
-      isCurrent: lowerQuestion.includes('current') || 
-                lowerQuestion.includes('now') || 
-                lowerQuestion.includes('today') ||
-                lowerQuestion.includes('ranking'),
-      isStatistical: lowerQuestion.includes('statistics') || 
-                    lowerQuestion.includes('stats') || 
-                    lowerQuestion.includes('record') ||
-                    lowerQuestion.includes('head to head') ||
-                    lowerQuestion.includes('vs'),
-      isTournament: lowerQuestion.includes('tournament') || 
-                   lowerQuestion.includes('grand slam') ||
-                   lowerQuestion.includes('wimbledon') ||
-                   lowerQuestion.includes('us open') ||
-                   lowerQuestion.includes('french open') ||
-                   lowerQuestion.includes('australian open') ||
-                   lowerQuestion.includes('who won') ||
-                   lowerQuestion.includes('winner of')
-    };
-  }
-
-  async queryHistoricalData(question) {
-    console.log('🔍 queryHistoricalData called with:', question);
-    const analysis = await this.analyzeQuery(question);
-    console.log('🔍 Analysis result:', analysis);
-    
-    // Tournament winner queries
-    if (analysis.isTournament) {
-      console.log('🔍 Tournament query detected');
-      const tournamentMatch = question.match(/(?:who won|winner of)\s+(.+?)\s+(\d{4})/i);
-      console.log('🔍 Tournament match result:', tournamentMatch);
-      if (tournamentMatch) {
-        const [, tournament, year] = tournamentMatch;
-        console.log('🔍 Extracted tournament:', tournament, 'year:', year);
-        const result = await this.getTournamentWinner(tournament, parseInt(year));
-        console.log('🔍 Database query result:', result);
-        return this.formatTournamentWinnerResult(result, tournament, year);
-      }
-    }
-
-    // Head-to-head queries
-    if (analysis.isStatistical && question.includes(' vs ')) {
-      const players = question.split(' vs ').map(p => p.trim());
-      if (players.length === 2) {
-        const result = await this.getHeadToHead(players[0], players[1]);
-        return this.formatHeadToHeadResult(result, players[0], players[1]);
-      }
-    }
-
-    // Career statistics
-    if (analysis.isHistorical && question.includes('career')) {
-      const playerMatch = question.match(/(.+?)\s+career/i);
-      if (playerMatch) {
-        const player = playerMatch[1].trim();
-        const result = await this.getPlayerCareerStats(player);
-        return this.formatCareerStatsResult(result, player);
-      }
-    }
-
-    return null;
-  }
-
-  formatTournamentWinnerResult(result, tournament, year) {
-    if (result.rows.length === 0) {
-      return `No winner found for ${tournament} ${year}.`;
-    }
-    
-    const match = result.rows[0];
-    const score = [match.set1, match.set2, match.set3, match.set4, match.set5]
-      .filter(set => set && set !== '')
-      .join(', ');
-    
-    return `The winner of ${tournament} ${year} was ${match.winner}, defeating ${match.loser} ${score}.`;
-  }
-
-  formatHeadToHeadResult(result, player1, player2) {
-    if (result.rows.length === 0) {
-      return `No head-to-head record found between ${player1} and ${player2}.`;
-    }
-    
-    const totalMatches = result.rows.length;
-    const player1Wins = result.rows.filter(r => r.winner_id === player1).length;
-    const player2Wins = result.rows.filter(r => r.winner_id === player2).length;
-    
-    return `Head-to-head between ${player1} and ${player2}: ${player1} leads ${player1Wins}-${player2Wins} (${totalMatches} total matches).`;
-  }
-
-  formatCareerStatsResult(result, player) {
-    if (result.rows.length === 0) {
-      return `No career statistics found for ${player}.`;
-    }
-    
-    const stats = result.rows[0];
-    return `${player}'s career: ${stats.wins} wins, ${stats.losses} losses, ${stats.titles_won} titles, ${stats.tournaments_played} tournaments played (${stats.first_year}-${stats.last_year}).`;
   }
 }
 
-module.exports = TennisQueryHandler;
+// Create and export singleton instance
+const tennisQueryHandler = new TennisQueryHandler();
+
+// Export the main query processing function (backward compatibility)
+async function processTennisQuery(question, userId = null) {
+  return await tennisQueryHandler.processQuery(question, userId);
+}
+
+// Export enhanced functions
+async function getHealthStatus() {
+  return await tennisQueryHandler.getHealthStatus();
+}
+
+async function getDatabaseStatus() {
+  return await tennisQueryHandler.getDatabaseStatus();
+}
+
+async function clearCaches() {
+  return await tennisQueryHandler.clearCaches();
+}
+
+async function getSystemStats() {
+  return await tennisQueryHandler.getSystemStats();
+}
+
+async function shutdown() {
+  return await tennisQueryHandler.shutdown();
+}
+
+module.exports = {
+  TennisQueryHandler,
+  processTennisQuery,
+  tennisQueryHandler,
+  // Enhanced functions
+  getHealthStatus,
+  getDatabaseStatus,
+  clearCaches,
+  getSystemStats,
+  shutdown
+};
