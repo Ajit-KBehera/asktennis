@@ -85,9 +85,24 @@ const queryCache = new QueryCache();
 
 class TennisQueryHandler {
   constructor() {
-    this.perplexity = new Perplexity({
-      apiKey: process.env.PERPLEXITY_API_KEY
-    });
+    // Initialize Perplexity AI with error handling
+    this.perplexity = null;
+    this.perplexityEnabled = false;
+    
+    try {
+      if (process.env.PERPLEXITY_API_KEY) {
+        this.perplexity = new Perplexity({
+          apiKey: process.env.PERPLEXITY_API_KEY
+        });
+        this.perplexityEnabled = true;
+        console.log('✅ Perplexity AI initialized successfully');
+      } else {
+        console.log('⚠️  PERPLEXITY_API_KEY not configured. Perplexity AI features will be disabled.');
+      }
+    } catch (error) {
+      console.error('❌ Failed to initialize Perplexity AI:', error.message);
+      console.log('⚠️  Perplexity AI features will be disabled.');
+    }
     
     // Tennis-specific query patterns and responses - Enhanced with XSD data
     this.queryPatterns = {
@@ -349,6 +364,10 @@ class TennisQueryHandler {
         Focus on tennis-specific entities and be precise about what data is being requested.
       `;
 
+      if (!this.perplexityEnabled || !this.perplexity) {
+        throw new Error('Perplexity AI is not available. Please configure PERPLEXITY_API_KEY environment variable.');
+      }
+
       const response = await this.perplexity.chat.completions.create({
         model: "sonar-pro",
         messages: [
@@ -520,6 +539,10 @@ class TennisQueryHandler {
         For tournament wins, join players with matches where player is the winner.
         Do NOT wrap the query in backticks or any other formatting.
       `;
+
+      if (!this.perplexityEnabled || !this.perplexity) {
+        throw new Error('Perplexity AI is not available. Please configure PERPLEXITY_API_KEY environment variable.');
+      }
 
       const response = await this.perplexity.chat.completions.create({
         model: "sonar-pro",
@@ -730,6 +753,10 @@ class TennisQueryHandler {
         FOR RANKING QUESTIONS: Answer format should be: "[Player Name] is ranked #[number] with [points] points."
         IMPORTANT: Double-check that all numbers in your response exactly match the numbers in the data.
       `;
+
+      if (!this.perplexityEnabled || !this.perplexity) {
+        throw new Error('Perplexity AI is not available. Please configure PERPLEXITY_API_KEY environment variable.');
+      }
 
       const response = await this.perplexity.chat.completions.create({
         model: "sonar-pro",
