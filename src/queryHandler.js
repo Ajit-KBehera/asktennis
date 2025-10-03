@@ -1,4 +1,4 @@
-const { Perplexity } = require('perplexityai');
+const { Perplexity } = require('@perplexity-ai/perplexity_ai');
 const database = require('./database');
 const dataSync = require('./dataSync');
 
