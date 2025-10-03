@@ -157,10 +157,10 @@ app.get('/health', (req, res) => {
 // Debug endpoint to check environment variables
 app.get('/api/debug', (req, res) => {
   res.json({
-    hasGroqKey: !!process.env.GROQ_API_KEY,
-    keyPrefix: process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.substring(0, 10) + '...' : 'undefined',
-    isPlaceholder: process.env.GROQ_API_KEY === 'your_groq_api_key_here',
-    allEnvKeys: Object.keys(process.env).filter(key => key.includes('GROQ'))
+    hasPerplexityKey: !!process.env.PERPLEXITY_API_KEY,
+    keyPrefix: process.env.PERPLEXITY_API_KEY ? process.env.PERPLEXITY_API_KEY.substring(0, 10) + '...' : 'undefined',
+    isPlaceholder: process.env.PERPLEXITY_API_KEY === 'your_perplexity_api_key_here',
+    allEnvKeys: Object.keys(process.env).filter(key => key.includes('PERPLEXITY'))
   });
 });
 
@@ -179,7 +179,7 @@ app.get('/api/test', (req, res) => {
   res.json({ 
     message: 'Server is running updated code',
     timestamp: new Date().toISOString(),
-    hasGroqKey: !!process.env.GROQ_API_KEY
+    hasPerplexityKey: !!process.env.PERPLEXITY_API_KEY
   });
 });
 
@@ -290,20 +290,20 @@ app.get('/api/test-js', (req, res) => {
   }
 });
 
-// Test Groq API key directly
-app.get('/api/test-groq', async (req, res) => {
+// Test Perplexity API key directly
+app.get('/api/test-perplexity', async (req, res) => {
   try {
-    const Groq = require('groq-sdk');
-    const groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY
+    const { Perplexity } = require('perplexityai');
+    const perplexity = new Perplexity({
+      apiKey: process.env.PERPLEXITY_API_KEY
     });
     
-    const response = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+    const response = await perplexity.chat.completions.create({
+      model: "sonar-pro",
       messages: [
         {
           role: "user",
-          content: "Say 'Groq API is working' if you can read this."
+          content: "Say 'Perplexity API is working' if you can read this."
         }
       ],
       max_tokens: 10
@@ -311,7 +311,7 @@ app.get('/api/test-groq', async (req, res) => {
     
     res.json({ 
       success: true,
-      message: 'Groq API is working!',
+      message: 'Perplexity API is working!',
       response: response.choices[0].message.content
     });
   } catch (error) {

@@ -1,4 +1,4 @@
-const Groq = require('groq-sdk');
+const { Perplexity } = require('perplexityai');
 const database = require('./database');
 const dataSync = require('./dataSync');
 
@@ -85,8 +85,8 @@ const queryCache = new QueryCache();
 
 class TennisQueryHandler {
   constructor() {
-    this.groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY
+    this.perplexity = new Perplexity({
+      apiKey: process.env.PERPLEXITY_API_KEY
     });
     
     // Tennis-specific query patterns and responses - Enhanced with XSD data
@@ -349,8 +349,8 @@ class TennisQueryHandler {
         Focus on tennis-specific entities and be precise about what data is being requested.
       `;
 
-      const response = await this.groq.chat.completions.create({
-        model: "llama-3.1-8b-instant",
+      const response = await this.perplexity.chat.completions.create({
+        model: "sonar-pro",
         messages: [
           {
             role: "system",
@@ -521,8 +521,8 @@ class TennisQueryHandler {
         Do NOT wrap the query in backticks or any other formatting.
       `;
 
-      const response = await this.groq.chat.completions.create({
-        model: "llama-3.1-8b-instant",
+      const response = await this.perplexity.chat.completions.create({
+        model: "sonar-pro",
         messages: [
           {
             role: "system",
@@ -731,8 +731,8 @@ class TennisQueryHandler {
         IMPORTANT: Double-check that all numbers in your response exactly match the numbers in the data.
       `;
 
-      const response = await this.groq.chat.completions.create({
-        model: "llama-3.1-8b-instant",
+      const response = await this.perplexity.chat.completions.create({
+        model: "sonar-pro",
         messages: [
           {
             role: "system",
