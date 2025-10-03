@@ -2,9 +2,12 @@
 
 An intelligent tennis statistics query system that allows users to ask natural language questions about tennis and receive precise, data-driven answers with beautiful visualizations.
 
+A full-stack application featuring a React frontend, Node.js/Express backend, PostgreSQL database, integrated with Groq AI and Sportradar APIs for real-time tennis data processing.
+
 ## ✨ Features
 
 ### 🎯 **Core Functionality**
+
 - **Natural Language Queries**: Ask questions in plain English about tennis
 - **AI-Powered Responses**: Intelligent query processing with Groq's Llama models
 - **Real-time Data**: Live tennis statistics and rankings
@@ -13,6 +16,7 @@ An intelligent tennis statistics query system that allows users to ask natural l
 - **Direct Answers**: Point-blank responses for ranking queries
 
 ### 🎨 **User Experience**
+
 - **AskCricinfo-inspired Input**: Clean, modern input field with dynamic placeholders
 - **Enhanced Data Visualization**: Beautiful ranking cards with glass-morphism effects
 - **Responsive Design**: Works perfectly on desktop and mobile
@@ -52,35 +56,41 @@ An intelligent tennis statistics query system that allows users to ask natural l
 ## 🛠️ Technology Stack
 
 ### **Frontend**
-- **React 18** with TypeScript
-- **Bootstrap 5** for responsive design
-- **Custom CSS** with glass-morphism effects
-- **Axios** for API communication
+
+- React 18 with TypeScript
+- Bootstrap 5 for responsive design
+- Custom CSS with glass-morphism effects
+- Axios for API communication
 
 ### **Backend**
-- **Node.js** with Express
-- **PostgreSQL** for tennis data storage
-- **Groq API** with Llama 3.1-8b-instant model
-- **Sportradar API** for live tennis data
+
+- Node.js with Express
+- PostgreSQL for tennis data storage
+- Groq API with Llama 3.1-8b-instant model
+- Sportradar API for live tennis data
 
 ### **Deployment**
-- **Railway** for hosting
-- **GitHub** for version control
-- **Custom favicon** and PWA support
+
+- Railway for hosting
+- GitHub for version control
+- Custom favicon and PWA support
 
 ## 📊 Example Queries
 
 ### **Player Rankings**
+
 - "What is the rank of Arthur Fils?"
 - "Who is rank 1 now?"
 - "Who are the top 5 players?"
 
 ### **Player Information**
+
 - "Tell me about Carlos Alcaraz"
 - "What is Novak Djokovic's ranking?"
 - "Who is Jannik Sinner?"
 
 ### **Tournament Data**
+
 - "Who won Wimbledon 2023?"
 - "What are the upcoming tournaments?"
 - "Show me Grand Slam winners"
@@ -88,75 +98,79 @@ An intelligent tennis statistics query system that allows users to ask natural l
 ## 🚀 Quick Start
 
 ### **Prerequisites**
-- Node.js 18+ 
+
+- Node.js 18+
 - PostgreSQL database
 - Groq API key
 
 ### **Installation**
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/Ajit-KBehera/asktennis.git
-   cd asktennis
-   ```
+1. Clone the repository
+```bash
+git clone https://github.com/Ajit-KBehera/asktennis.git
+cd asktennis
+```
 
-2. **Install dependencies**
-   ```bash
-   # Install root dependencies
-   npm install
-   
-   # Install client dependencies
-   cd client
-   npm install
-   cd ..
-   ```
+2. Install dependencies
+```bash
+# Install root dependencies
+npm install
 
-3. **Set up environment variables**
-   ```bash
-   cp env.example .env
-   ```
-   
-   Edit `.env` with your configuration:
-   ```env
-   GROQ_API_KEY=your_groq_api_key_here
-   DATABASE_URL=your_postgresql_connection_string
-   SPORTRADAR_API_KEY=your_sportradar_api_key
-   ```
+# Install client dependencies
+cd client
+npm install
+cd ..
+```
 
-4. **Initialize the database**
-   ```bash
-   node seed.js
-   ```
+3. Set up environment variables
+```bash
+cp env.example .env
+```
 
-5. **Start the development server**
-   ```bash
-   # Start backend server
-   npm start
-   
-   # In another terminal, start frontend
-   cd client
-   npm start
-   ```
+Edit `.env` with your configuration:
+```
+GROQ_API_KEY=your_groq_api_key_here
+DATABASE_URL=your_postgresql_connection_string
+SPORTRADAR_API_KEY=your_sportradar_api_key
+```
 
-6. **Open your browser**
+4. Initialize the database
+```bash
+node seed.js
+```
+
+5. Start the development server
+```bash
+# Start backend server
+npm start
+
+# In another terminal, start frontend
+cd client
+npm start
+```
+
+6. Open your browser
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:5000
 
 ## 🎨 UI Components
 
 ### **QueryInput Component**
+
 - Dynamic placeholders that change based on focus
 - Real-time query suggestions
 - Auto-resizing textarea
 - Clean submit button with loading states
 
 ### **DataDisplay Component**
+
 - **Ranking Cards**: Beautiful glass-morphism cards for player rankings
 - **Player Info Cards**: Detailed player information display
 - **Generic Tables**: Fallback for other data types
 - **Responsive Design**: Adapts to different screen sizes
 
 ### **Enhanced Styling**
+
 - Glass-morphism effects with backdrop blur
 - Smooth transitions and hover effects
 - Custom scrollbars
@@ -188,13 +202,16 @@ asktennis/
 ## 🔧 Configuration
 
 ### **Environment Variables**
+
 - `GROQ_API_KEY`: Your Groq API key for AI processing
 - `DATABASE_URL`: PostgreSQL connection string
 - `SPORTRADAR_API_KEY`: Sportradar API key for live data
 - `PORT`: Server port (default: 5000)
 
 ### **Database Schema**
+
 The system uses PostgreSQL with tables for:
+
 - `players`: Tennis player information
 - `rankings`: Current and historical rankings
 - `tournaments`: Tournament data
@@ -203,12 +220,14 @@ The system uses PostgreSQL with tables for:
 ## 🚀 Deployment
 
 ### **Railway Deployment**
+
 1. Connect your GitHub repository to Railway
 2. Set environment variables in Railway dashboard
 3. Railway will automatically deploy from the `main` branch
 4. Your app will be available at the provided Railway URL
 
 ### **Manual Deployment**
+
 ```bash
 # Build the client
 cd client
@@ -222,6 +241,7 @@ npm start
 ## 🎯 Recent Updates
 
 ### **v2.0 - Enhanced UI/UX**
+
 - ✅ AskCricinfo-inspired input field design
 - ✅ Beautiful data visualization with ranking cards
 - ✅ Custom tennis ball favicon and branding
@@ -231,6 +251,7 @@ npm start
 - ✅ Glass-morphism effects and modern styling
 
 ### **v1.0 - Core Features**
+
 - ✅ AI-powered query processing
 - ✅ PostgreSQL database integration
 - ✅ Sportradar API integration
@@ -257,5 +278,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **AskCricinfo** for UI/UX inspiration
 
 ---
-
 **Built with ❤️ for tennis fans worldwide** 🎾
