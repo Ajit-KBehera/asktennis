@@ -57,7 +57,7 @@ const Footer: React.FC = () => {
         <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-300">
           <p>&copy; 2024 AskTennis. Built with ❤️ for tennis fans worldwide.</p>
           <p className="mt-2 text-sm">
-            Powered by Groq Cloud API and comprehensive tennis databases.
+            Powered by Perplexity AI Grounded LLM and comprehensive tennis databases.
           </p>
         </div>
       </div>

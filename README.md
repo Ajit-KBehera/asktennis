@@ -6,7 +6,7 @@ An intelligent tennis statistics query system that allows users to ask natural l
 
 ### 🎯 **Core Functionality**
 - **Natural Language Queries**: Ask questions in plain English about tennis
-- **AI-Powered Responses**: Intelligent query processing with Groq's Llama models
+- **AI-Powered Responses**: Intelligent query processing with Perplexity AI's Grounded LLM
 - **Real-time Data**: Live tennis statistics and rankings
 - **Beautiful UI**: Modern, responsive design inspired by AskCricinfo
 - **Smart Caching**: Fast responses for common queries
@@ -31,8 +31,8 @@ An intelligent tennis statistics query system that allows users to ask natural l
                                                          │
                                                          ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Beautiful     │◀───│  Query Handler   │◀───│  Groq AI API    │
-│   Response      │    │  (Smart Routing) │    │  (Llama Models) │
+│   Beautiful     │◀───│  Query Handler   │◀───│  Perplexity AI   │
+│   Response      │    │  (Smart Routing) │    │  (Grounded LLM) │
 │   + Data Cards  │    │                  │    │                 │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                 │
@@ -60,7 +60,7 @@ An intelligent tennis statistics query system that allows users to ask natural l
 ### **Backend**
 - **Node.js** with Express
 - **PostgreSQL** for tennis data storage
-- **Groq API** with Llama 3.1-8b-instant model
+- **Perplexity AI** with Grounded LLM for real-time web search
 - **Sportradar API** for live tennis data
 
 ### **Deployment**
@@ -90,7 +90,7 @@ An intelligent tennis statistics query system that allows users to ask natural l
 ### **Prerequisites**
 - Node.js 18+ 
 - PostgreSQL database
-- Groq API key
+- Perplexity AI API key
 
 ### **Installation**
 
@@ -118,7 +118,7 @@ An intelligent tennis statistics query system that allows users to ask natural l
    
    Edit `.env` with your configuration:
    ```env
-   GROQ_API_KEY=your_groq_api_key_here
+   PERPLEXITY_API_KEY=your_perplexity_api_key_here
    DATABASE_URL=your_postgresql_connection_string
    SPORTRADAR_API_KEY=your_sportradar_api_key
    ```
@@ -188,7 +188,7 @@ asktennis/
 ## 🔧 Configuration
 
 ### **Environment Variables**
-- `GROQ_API_KEY`: Your Groq API key for AI processing
+- `PERPLEXITY_API_KEY`: Your Perplexity AI API key for AI processing
 - `DATABASE_URL`: PostgreSQL connection string
 - `SPORTRADAR_API_KEY`: Sportradar API key for live data
 - `PORT`: Server port (default: 5000)
@@ -251,7 +251,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- **Groq** for fast AI inference
+- **Perplexity AI** for Grounded LLM with real-time web search
 - **Sportradar** for comprehensive tennis data
 - **Railway** for seamless deployment
 - **AskCricinfo** for UI/UX inspiration

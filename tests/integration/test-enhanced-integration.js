@@ -9,14 +9,14 @@ const sportsradar = require('../../src/sportsradar');
 const database = require('../../src/database');
 const dataSync = require('../../src/dataSync');
 
-// Only require queryHandler if Groq API key is available
+// Only require queryHandler if Perplexity AI API key is available
 let queryHandler = null;
 try {
-  if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'your_groq_api_key_here') {
+  if (process.env.PERPLEXITY_API_KEY && process.env.PERPLEXITY_API_KEY !== 'your_perplexity_api_key_here') {
     queryHandler = require('../../src/queryHandler');
   }
 } catch (error) {
-  console.log('⚠️  Groq API key not configured, skipping query handler tests');
+  console.log('⚠️  Perplexity AI API key not configured, skipping query handler tests');
 }
 
 async function testEnhancedIntegration() {
@@ -45,7 +45,7 @@ async function testEnhancedIntegration() {
       await testQueryHandler();
       console.log('✅ Query handler test completed\n');
     } else {
-      console.log('4️⃣ Skipping Query Handler Test (Groq API not configured)\n');
+      console.log('4️⃣ Skipping Query Handler Test (Perplexity AI API not configured)\n');
     }
 
     // Test 5: End-to-End Integration
@@ -212,7 +212,7 @@ async function testDataSync() {
 
 async function testQueryHandler() {
   if (!queryHandler) {
-    console.log('  ⚠️  Query handler not available (Groq API not configured)');
+    console.log('  ⚠️  Query handler not available (Perplexity AI API not configured)');
     return;
   }
   
@@ -292,7 +292,7 @@ async function testEndToEndIntegration() {
       }
     }
   } else {
-    console.log('    ⚠️  Skipping enhanced query tests (Groq API not configured)');
+    console.log('    ⚠️  Skipping enhanced query tests (Perplexity AI API not configured)');
   }
 }
 

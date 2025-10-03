@@ -178,17 +178,17 @@ class TennisQueryHandler {
         };
       }
       
-      // Check if Groq API key is configured
+      // Check if Perplexity AI API key is configured
       console.log('API Key check:', {
-        hasKey: !!process.env.GROQ_API_KEY,
-        keyValue: process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.substring(0, 10) + '...' : 'undefined',
-        isPlaceholder: process.env.GROQ_API_KEY === 'your_groq_api_key_here',
-        fullKey: process.env.GROQ_API_KEY
+        hasKey: !!process.env.PERPLEXITY_API_KEY,
+        keyValue: process.env.PERPLEXITY_API_KEY ? process.env.PERPLEXITY_API_KEY.substring(0, 10) + '...' : 'undefined',
+        isPlaceholder: process.env.PERPLEXITY_API_KEY === 'your_perplexity_api_key_here',
+        fullKey: process.env.PERPLEXITY_API_KEY
       });
       
-      if (!process.env.GROQ_API_KEY || process.env.GROQ_API_KEY === 'your_groq_api_key_here') {
-        console.log('❌ Groq API key not configured, trying database-only mode');
-        console.log('API key value:', process.env.GROQ_API_KEY);
+      if (!process.env.PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY === 'your_perplexity_api_key_here') {
+        console.log('❌ Perplexity AI API key not configured, trying database-only mode');
+        console.log('API key value:', process.env.PERPLEXITY_API_KEY);
         
         // Try to answer with database data only (no AI)
         const dbResult = await this.queryDatabaseDirectly(question);

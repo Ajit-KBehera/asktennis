@@ -24,7 +24,7 @@ async function testDeployment() {
   ];
 
   const optionalEnvVars = [
-    'GROQ_API_KEY',
+    'PERPLEXITY_API_KEY',
     'SPORTRADAR_API_KEY',
     'SPORTSDATAIO_API_KEY'
   ];
@@ -67,7 +67,7 @@ async function testDeployment() {
     require('express');
     require('pg');
     require('redis');
-    require('groq-sdk');
+    require('@perplexity-ai/perplexity_ai');
     console.log('   ✅ All dependencies available');
   } catch (error) {
     console.log(`   ❌ Missing dependency: ${error.message}`);
